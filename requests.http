@@ -1,0 +1,35 @@
+### Create a new product
+POST http://localhost:8080/api/products
+Content-Type: application/json
+
+{
+  "sku": "LAP-MAC-M3",
+  "name": "MacBook Pro",
+  "price": 1200.00,
+  "stockQuantity": 15,
+  "category": "laptop"
+}
+
+### Get all products
+GET http://localhost:8080/api/products
+
+### Get a specific product by ID
+GET http://localhost:8080/api/products/1
+
+### Update a product's price
+PUT http://localhost:8080/api/products/1
+Content-Type: application/json
+
+{
+  "sku": "LAP-MAC-M3",
+  "name": "MacBook Pro",
+  "price": 1300.00,
+  "stockQuantity": 15,
+  "category": "laptop"
+}
+
+### Delete a specific product
+DELETE http://localhost:8080/api/products/1
+
+### Get products by category
+GET http://localhost:8080/api/products/category/laptop
