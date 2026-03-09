@@ -1,15 +1,14 @@
 package com.geetharu.ecommerce_platform.controller;
 
-import com.geetharu.ecommerce_platform.dto.CartItemDTO;
 import com.geetharu.ecommerce_platform.entity.Product;
 import com.geetharu.ecommerce_platform.service.ProductService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/products")
 @CrossOrigin(origins = "http://localhost:5173")
 public class ProductController {
 
@@ -19,47 +18,28 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // --- PRODUCT ENDPOINTS ---
-
-    @GetMapping("/products") // Added /products here
+    @GetMapping
     public List<Product> getAllProducts() {
         return productService.getAllProducts();
     }
 
-    @PostMapping("/products") // Added /products here
-    public Product createProduct(@RequestBody Product product) {
-        return productService.createProduct(product);
-    }
-
-    @GetMapping("/products/{id}")
-    public Product getProductById(@PathVariable Long id) {
-        return productService.getProductById(id);
-    }
-
-    @PutMapping("/products/{id}")
-    public Product updateProduct(@PathVariable Long id, @RequestBody Product product) {
-        return productService.updateProduct(id, product);
-    }
-
-    @DeleteMapping("/products/{id}")
-    public void deleteProduct(@PathVariable Long id) {
-        productService.deleteProduct(id);
-    }
-
-    @GetMapping("/products/category/{category}")
-    public List<Product> getProductsByCategory(@PathVariable String category) {
-        return productService.getProductsByCategory(category);
-    }
-
-    // --- CHECKOUT ENDPOINT ---
-
-    @PostMapping("/checkout")
-    public ResponseEntity<?> checkout(@RequestBody List<CartItemDTO> cartItems) {
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> createProduct(@RequestBody Product product) {
+        System.out.println("🚀 Admin is trying to add product: " + product.getName());
         try {
-            productService.processCheckout(cartItems);
-            return ResponseEntity.ok(Map.of("message", "Checkout successful"));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            Product savedProduct = productService.createProduct(product);
+            return ResponseEntity.ok(savedProduct);
+        } catch (Exception e) {
+            System.out.println("❌ Error saving product: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(e.getMessage());
         }
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        productService.deleteProduct(id);
+        return ResponseEntity.noContent().build();
     }
 }
