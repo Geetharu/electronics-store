@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import './App.css';
+import Login from './Login'; // Ensure you created Login.jsx!
 
 function App() {
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]); 
   const [isCartOpen, setIsCartOpen] = useState(false);
-  // NEW: Notification state
   const [notification, setNotification] = useState(null);
+
+  // --- AUTHENTICATION STATE ---
+  const [token, setToken] = useState(localStorage.getItem('token'));
 
   const fetchProducts = async () => {
     try {
@@ -20,23 +23,39 @@ function App() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    // Only fetch products if the user is logged in
+    if (token) {
+      fetchProducts();
+    }
+  }, [token]);
 
-  // Helper to show a temporary toast
-  const showToast = (message) => {
-    setNotification(message);
-    setTimeout(() => setNotification(null), 3000); // Disappears after 3 seconds
+  // --- AUTH HANDLERS ---
+  const handleLoginSuccess = (newToken) => {
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+    showToast("👋 Welcome back to Elite Electronics!");
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setCart([]); // Clear cart on logout for security
+    showToast("Logged out successfully.");
+  };
+
+  // --- UI HELPERS ---
+  const showToast = (message) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  // --- CART LOGIC ---
   const addToCart = (product) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
       if (existingItem) {
         return prevCart.map((item) =>
-          item.id === product.id
-            ? { ...item, cartQuantity: item.cartQuantity + 1 }
-            : item
+          item.id === product.id ? { ...item, cartQuantity: item.cartQuantity + 1 } : item
         );
       } else {
         return [...prevCart, { ...product, cartQuantity: 1 }];
@@ -45,28 +64,6 @@ function App() {
     showToast(`✅ Added ${product.name} to cart!`);
   };
 
-  const handleCheckout = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cart),
-      });
-
-      if (response.ok) {
-        showToast("🚀 Order placed successfully!"); // No more alert()!
-        setCart([]); 
-        setIsCartOpen(false);
-        fetchProducts(); 
-      } else {
-        showToast("❌ Checkout failed.");
-      }
-    } catch (error) {
-      showToast("❌ Server connection lost.");
-    }
-  };
-
-  // ... (keep your increaseQty, decreaseQty, removeFromCart functions) ...
   const increaseQty = (id) => {
     setCart((prevCart) => prevCart.map(item => 
       item.id === id ? { ...item, cartQuantity: item.cartQuantity + 1 } : item
@@ -83,6 +80,30 @@ function App() {
     setCart((prevCart) => prevCart.filter(item => item.id !== id));
   };
 
+  const handleCheckout = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/api/checkout', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Passing the token to backend
+        },
+        body: JSON.stringify(cart),
+      });
+
+      if (response.ok) {
+        showToast("🚀 Order placed successfully!");
+        setCart([]); 
+        setIsCartOpen(false);
+        fetchProducts(); 
+      } else {
+        showToast("❌ Checkout failed.");
+      }
+    } catch (error) {
+      showToast("❌ Server connection lost.");
+    }
+  };
+
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
   const cartTotalPrice = cart.reduce((total, item) => total + (item.price * item.cartQuantity), 0);
 
@@ -91,9 +112,15 @@ function App() {
     product.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // --- CONDITIONAL RENDERING ---
+  // If no token exists, only show the Login page
+  if (!token) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Main Store Interface
   return (
     <div className="App">
-      {/* NEW: The Toast Notification UI */}
       {notification && <div className="toast-notification">{notification}</div>}
 
       <header className="app-header">
@@ -101,12 +128,15 @@ function App() {
           <h1>Elite Electronics ⚡</h1>
           <p>Excellence in Every Device</p>
         </div>
-        <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)}>
-          🛒 Cart {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
-        </button>
+        
+        <div className="header-actions">
+          <button className="logout-btn" onClick={handleLogout}>Logout</button>
+          <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)}>
+            🛒 Cart {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
+          </button>
+        </div>
       </header>
       
-      {/* ... (rest of your return statement stays the same) ... */}
       <div className="search-container">
         <input 
           type="text" 
