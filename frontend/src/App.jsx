@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import Login from './Login'; // Ensure you created Login.jsx!
+import Login from './Login'; 
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -8,10 +8,9 @@ function App() {
   const [cart, setCart] = useState([]); 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [notification, setNotification] = useState(null);
-
-  // --- AUTHENTICATION STATE ---
   const [token, setToken] = useState(localStorage.getItem('token'));
 
+  // --- DATA FETCHING ---
   const fetchProducts = async () => {
     try {
       const response = await fetch('http://localhost:8080/api/products');
@@ -23,11 +22,34 @@ function App() {
   };
 
   useEffect(() => {
-    // Only fetch products if the user is logged in
     if (token) {
       fetchProducts();
     }
   }, [token]);
+
+  // --- ADMIN ACTIONS ---
+  const handleDeleteProduct = async (productId) => {
+    const isConfirmed = window.confirm("⚠️ Are you sure? This deletes the product from the database forever.");
+    if (!isConfirmed) return; 
+
+    try {
+      const response = await fetch(`http://localhost:8080/api/products/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}` 
+        }
+      });
+
+      if (response.ok) {
+        showToast("🗑️ Product deleted successfully!");
+        fetchProducts(); 
+      } else {
+        alert("Delete failed. Check backend permissions.");
+      }
+    } catch (error) {
+      console.error("Error deleting product:", error);
+    }
+  };
 
   // --- AUTH HANDLERS ---
   const handleLoginSuccess = (newToken) => {
@@ -37,9 +59,9 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    localStorage.clear();
     setToken(null);
-    setCart([]); // Clear cart on logout for security
+    setCart([]); 
     showToast("Logged out successfully.");
   };
 
@@ -86,7 +108,7 @@ function App() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Passing the token to backend
+          'Authorization': `Bearer ${token}` 
         },
         body: JSON.stringify(cart),
       });
@@ -104,6 +126,7 @@ function App() {
     }
   };
 
+  // --- COMPUTED VALUES ---
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
   const cartTotalPrice = cart.reduce((total, item) => total + (item.price * item.cartQuantity), 0);
 
@@ -112,13 +135,11 @@ function App() {
     product.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // --- CONDITIONAL RENDERING ---
-  // If no token exists, only show the Login page
+  // --- RENDERING ---
   if (!token) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Main Store Interface
   return (
     <div className="App">
       {notification && <div className="toast-notification">{notification}</div>}
@@ -128,7 +149,6 @@ function App() {
           <h1>Elite Electronics ⚡</h1>
           <p>Excellence in Every Device</p>
         </div>
-        
         <div className="header-actions">
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
           <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)}>
@@ -140,7 +160,7 @@ function App() {
       <div className="search-container">
         <input 
           type="text" 
-          placeholder="Search products or categories..." 
+          placeholder="Search products..." 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-bar"
@@ -149,7 +169,19 @@ function App() {
       
       <div className="product-list">
         {filteredProducts.map((product) => (
-          <div key={product.id} className="product-card">
+          <div key={product.id} className="product-card" style={{ position: 'relative' }}>
+            
+            {/* 🗑️ ADMIN DELETE BUTTON */}
+            {localStorage.getItem('username') === 'admin' && (
+              <button 
+                onClick={() => handleDeleteProduct(product.id)}
+                style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', border: 'none', background: 'none', fontSize: '1.2rem'}}
+                title="Admin: Delete from DB"
+              >
+                🗑️
+              </button>
+            )}
+
             <span className="category-tag">{product.category}</span>
             <h3>{product.name}</h3>
             <p className="price-tag">${product.price.toFixed(2)}</p>
@@ -174,9 +206,8 @@ function App() {
               <h2>Your Shopping Cart</h2>
               <button className="close-cart-btn" onClick={() => setIsCartOpen(false)}>✖</button>
             </div>
-            
             {cart.length === 0 ? (
-              <p>Your cart is currently empty.</p>
+              <p>Your cart is empty.</p>
             ) : (
               <div className="cart-items-list">
                 {cart.map((item) => (
@@ -197,14 +228,9 @@ function App() {
                 ))}
               </div>
             )}
-            
             <div className="cart-total">
               <h3>Total: ${cartTotalPrice.toFixed(2)}</h3>
-              <button 
-                className="checkout-btn" 
-                disabled={cart.length === 0}
-                onClick={handleCheckout}
-              >
+              <button className="checkout-btn" disabled={cart.length === 0} onClick={handleCheckout}>
                 Proceed to Checkout
               </button>
             </div>
