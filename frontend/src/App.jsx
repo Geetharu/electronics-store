@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import Login from './Login'; 
 import Register from './Register';
-import AdminDashboard from './AdminDashboard'; // Import our new component
+import AdminDashboard from './AdminDashboard'; 
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -12,7 +12,7 @@ function App() {
   const [notification, setNotification] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [isRegistering, setIsRegistering] = useState(false);
-  const [view, setView] = useState('shop'); // NEW: 'shop' or 'admin'
+  const [view, setView] = useState('shop'); // 'shop' or 'admin'
 
   // --- DATA FETCHING ---
   const fetchProducts = async () => {
@@ -96,13 +96,23 @@ function App() {
   };
 
   // --- COMPUTED VALUES ---
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
   const isAdmin = localStorage.getItem('role') === 'ROLE_ADMIN';
+  const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
+
+  // 🙈 Filter logic: Admins see everything, customers only see visible items
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          product.category.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // If the user is an Admin, ignore the hidden status
+    if (isAdmin) {
+      return matchesSearch;
+    } 
+    // If the user is a customer, only return items that are NOT hidden
+    else {
+      return matchesSearch && !product.isHidden;
+    }
+  });
 
   // --- RENDERING ---
   if (!token) {
@@ -126,14 +136,15 @@ function App() {
           <p>Excellence in Every Device</p>
         </div>
         <div className="header-actions">
-          {/* 🛠️ Dashboard Toggle Button */}
           {isAdmin && (
             <button className="nav-btn" onClick={() => setView(view === 'shop' ? 'admin' : 'shop')}>
               {view === 'shop' ? '⚙️ Dashboard' : '🛒 View Shop'}
             </button>
           )}
+          
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
-          {view === 'shop' && (
+          
+          {!isAdmin && view === 'shop' && (
             <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)}>
               🛒 Cart {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
             </button>
@@ -159,25 +170,76 @@ function App() {
             {filteredProducts.map((product) => (
               <div key={product.id} className="product-card">
                 <span className="category-tag">{product.category}</span>
-                <h3>{product.name}</h3>
+                
+                <h3>
+                  {product.name}
+                  {/* 👁️ NEW: Show a badge if the item is hidden (Admins only) */}
+                  {product.isHidden && (
+                    <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '12px', marginLeft: '10px', verticalAlign: 'middle' }}>
+                      Hidden for customers
+                    </span>
+                  )}
+                </h3>
+
                 <p className="price-tag">${product.price.toFixed(2)}</p>
                 <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e' }}>
                   {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
                 </p>
-                <button 
-                  className="add-to-cart-btn"
-                  onClick={() => addToCart(product)}
-                  disabled={product.stockQuantity === 0}
-                >
-                  Add to Cart
-                </button>
+                
+                {!isAdmin && (
+                  <button 
+                    className="add-to-cart-btn"
+                    onClick={() => addToCart(product)}
+                    disabled={product.stockQuantity === 0}
+                  >
+                    Add to Cart
+                  </button>
+                )}
               </div>
             ))}
+            
+            {filteredProducts.length === 0 && (
+              <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem', gridColumn: '1 / -1' }}>
+                No products found.
+              </p>
+            )}
           </div>
         </>
       )}
 
-      {/* ... Cart Modal Logic remains the same ... */}
+      {/* --- CART MODAL --- */}
+      {isCartOpen && !isAdmin && (
+        <div className="cart-modal-overlay" onClick={() => setIsCartOpen(false)}>
+          <div className="cart-modal" onClick={e => e.stopPropagation()}>
+            <div className="cart-header">
+              <h2>Your Shopping Cart</h2>
+              <button className="close-btn" onClick={() => setIsCartOpen(false)}>✖</button>
+            </div>
+            
+            {cart.length === 0 ? (
+              <p className="empty-cart">Your cart is empty.</p>
+            ) : (
+              <>
+                <div className="cart-items">
+                  {cart.map((item, index) => (
+                    <div key={index} className="cart-item">
+                      <div>
+                        <h4>{item.name}</h4>
+                        <p>${item.price.toFixed(2)} x {item.cartQuantity}</p>
+                      </div>
+                      <p className="item-total">${(item.price * item.cartQuantity).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="cart-footer">
+                  <h3>Total: ${cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0).toFixed(2)}</h3>
+                  <button className="checkout-btn" onClick={handleCheckout}>Checkout</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

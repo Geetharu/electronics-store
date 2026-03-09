@@ -24,22 +24,47 @@ public class ProductController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createProduct(@RequestBody Product product) {
-        System.out.println("🚀 Admin is trying to add product: " + product.getName());
         try {
             Product savedProduct = productService.createProduct(product);
             return ResponseEntity.ok(savedProduct);
         } catch (Exception e) {
-            System.out.println("❌ Error saving product: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(e.getMessage());
+            return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> updateProduct(@PathVariable Long id, @RequestBody Product productDetails) {
+        try {
+            Product existingProduct = productService.getProductById(id);
+            if (existingProduct == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            existingProduct.setName(productDetails.getName());
+            existingProduct.setPrice(productDetails.getPrice());
+            existingProduct.setCategory(productDetails.getCategory());
+            existingProduct.setStockQuantity(productDetails.getStockQuantity());
+            existingProduct.setSku(productDetails.getSku());
+            existingProduct.setHidden(productDetails.isHidden()); // 🙈 Save visibility
+
+            Product updatedProduct = productService.updateProduct(id, existingProduct);
+            return ResponseEntity.ok(updatedProduct);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Update failed: " + e.getMessage());
         }
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
-        productService.deleteProduct(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deleteProduct(@PathVariable Long id) {
+        try {
+            productService.deleteProduct(id);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Could not delete product.");
+        }
     }
 }
