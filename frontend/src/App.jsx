@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import Login from './Login'; 
+import Register from './Register';
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -9,11 +10,14 @@ function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [notification, setNotification] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
+  const [isRegistering, setIsRegistering] = useState(false); // Toggle between Login/Register
 
   // --- DATA FETCHING ---
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/products');
+      const response = await fetch('http://localhost:8080/api/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await response.json();
       setProducts(data);
     } catch (error) {
@@ -52,10 +56,12 @@ function App() {
   };
 
   // --- AUTH HANDLERS ---
-  const handleLoginSuccess = (newToken) => {
-    localStorage.setItem('token', newToken);
-    setToken(newToken);
-    showToast("👋 Welcome back to Elite Electronics!");
+  const handleLoginSuccess = (data) => {
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('username', data.username);
+    localStorage.setItem('role', data.role); // Store the role from the backend
+    setToken(data.token);
+    showToast(`👋 Welcome back, ${data.username}!`);
   };
 
   const handleLogout = () => {
@@ -137,7 +143,14 @@ function App() {
 
   // --- RENDERING ---
   if (!token) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    return isRegistering ? (
+        <Register onSwitchToLogin={() => setIsRegistering(false)} />
+    ) : (
+        <Login 
+            onLoginSuccess={handleLoginSuccess} 
+            onSwitchToRegister={() => setIsRegistering(true)} 
+        />
+    );
   }
 
   return (
@@ -171,8 +184,8 @@ function App() {
         {filteredProducts.map((product) => (
           <div key={product.id} className="product-card" style={{ position: 'relative' }}>
             
-            {/* 🗑️ ADMIN DELETE BUTTON */}
-            {localStorage.getItem('username') === 'admin' && (
+            {/* 🗑️ ADMIN DELETE BUTTON - Checks for ROLE_ADMIN */}
+            {localStorage.getItem('role') === 'ROLE_ADMIN' && (
               <button 
                 onClick={() => handleDeleteProduct(product.id)}
                 style={{ position: 'absolute', top: '10px', right: '10px', cursor: 'pointer', border: 'none', background: 'none', fontSize: '1.2rem'}}

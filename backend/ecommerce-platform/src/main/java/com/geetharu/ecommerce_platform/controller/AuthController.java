@@ -3,6 +3,7 @@ package com.geetharu.ecommerce_platform.controller;
 import com.geetharu.ecommerce_platform.entity.User;
 import com.geetharu.ecommerce_platform.repository.UserRepository;
 import com.geetharu.ecommerce_platform.security.JwtUtils;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -22,16 +23,41 @@ public class AuthController {
         this.jwtUtils = jwtUtils;
     }
 
-    @PostMapping("/login")
-    public Map<String, String> login(@RequestBody User loginRequest) {
-        User user = userRepository.findByUsername(loginRequest.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody User user) {
+        // 1. Check if user already exists
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Username already taken!"));
+        }
 
-        if (passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+        // 2. Encode password (CRITICAL)
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+        // 3. Set default role if not provided
+        if (user.getRole() == null || user.getRole().isEmpty()) {
+            user.setRole("ROLE_USER");
+        }
+
+        // 4. Save and return success
+        userRepository.save(user);
+        return ResponseEntity.ok(Map.of("message", "User registered successfully!"));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody User loginRequest) {
+        User user = userRepository.findByUsername(loginRequest.getUsername())
+                .orElse(null);
+
+        if (user != null && passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
             String token = jwtUtils.generateToken(user.getUsername());
-            return Map.of("token", token);
+            // We return token AND role so the React app knows what to show
+            return ResponseEntity.ok(Map.of(
+                    "token", token,
+                    "role", user.getRole(),
+                    "username", user.getUsername()
+            ));
         } else {
-            throw new RuntimeException("Invalid credentials");
+            return ResponseEntity.status(401).body(Map.of("message", "Invalid username or password"));
         }
     }
 }

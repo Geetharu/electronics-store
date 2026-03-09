@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function Login({ onLoginSuccess }) {
+function Login({ onLoginSuccess, onSwitchToRegister }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,9 +18,8 @@ function Login({ onLoginSuccess }) {
 
       if (response.ok) {
         const data = await response.json();
-        // 🌟 CRITICAL: Save the username so App.jsx can see it
-        localStorage.setItem('username', username); 
-        onLoginSuccess(data.token, username);
+        // data should contain { token, username, role }
+        onLoginSuccess(data);
       } else {
         setError('Invalid username or password');
       }
@@ -36,13 +35,28 @@ function Login({ onLoginSuccess }) {
         <p>Please log in to continue</p>
         {error && <p className="error-msg">{error}</p>}
         <div className="form-group">
-          <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+          <input 
+            type="text" 
+            placeholder="Username" 
+            value={username} 
+            onChange={(e) => setUsername(e.target.value)} 
+            required 
+          />
         </div>
         <div className="form-group">
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            required 
+          />
         </div>
         <button type="submit" className="login-btn">Login</button>
-        <p className="hint">Try: <strong>admin</strong> / <strong>password123</strong></p>
+        
+        <p className="hint">
+            New here? <span onClick={onSwitchToRegister} style={{color: '#4a90e2', cursor: 'pointer', fontWeight: 'bold'}}>Create an account</span>
+        </p>
       </form>
     </div>
   );
