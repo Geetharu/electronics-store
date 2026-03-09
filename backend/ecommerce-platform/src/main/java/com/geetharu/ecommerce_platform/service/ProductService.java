@@ -1,10 +1,11 @@
 package com.geetharu.ecommerce_platform.service;
 
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import com.geetharu.ecommerce_platform.dto.CartItemDTO;
 import com.geetharu.ecommerce_platform.entity.Product;
 import com.geetharu.ecommerce_platform.repository.ProductRepository;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class ProductService {
@@ -38,6 +39,25 @@ public class ProductService {
             return productRepository.save(existingProduct);
         }).orElse(null);
     }
+
+    @Transactional
+    public void processCheckout(List<CartItemDTO> cartItems) {
+        for (CartItemDTO item : cartItems) {
+            // 1. Find the product in the database
+            Product product = productRepository.findById(item.getId())
+                    .orElseThrow(() -> new RuntimeException("Product not found with ID: " + item.getId()));
+
+            // 2. Check if we have enough stock left
+            if (product.getStockQuantity() < item.getCartQuantity()) {
+                throw new RuntimeException("Not enough stock for product: " + product.getName());
+            }
+
+            // 3. Deduct the stock and save back to the database
+            product.setStockQuantity(product.getStockQuantity() - item.getCartQuantity());
+            productRepository.save(product);
+        }
+    }
+
     // method to delete a product
     public void deleteProduct(Long id) {
         productRepository.deleteById(id);
