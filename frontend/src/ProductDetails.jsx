@@ -10,7 +10,8 @@ export default function ProductDetails({ addToCart }) {
     const fetchProduct = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8080/api/products/${id}`, {
+        // 🛠️ FIXED: Now uses the environment variable for deployment
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {

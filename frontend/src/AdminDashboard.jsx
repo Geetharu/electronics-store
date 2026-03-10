@@ -40,9 +40,9 @@ export default function AdminDashboard({ products, onProductAction }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const url = editingId 
-      ? `http://localhost:8080/api/products/${editingId}` 
-      : 'http://localhost:8080/api/products';
+    const url = editingId
+      ? `${import.meta.env.VITE_API_URL}/api/products/${editingId}` 
+      : `${import.meta.env.VITE_API_URL}/api/products`;
     const method = editingId ? 'PUT' : 'POST';
 
     try {
@@ -73,7 +73,7 @@ export default function AdminDashboard({ products, onProductAction }) {
   const deleteProduct = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
     try {
-      await fetch(`http://localhost:8080/api/products/${id}`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

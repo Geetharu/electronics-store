@@ -28,7 +28,7 @@ function MainApp() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/products', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -96,7 +96,7 @@ function MainApp() {
 
   const handleCheckout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/products/checkout', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products/checkout`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
