@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import './App.css';
 import Login from './Login'; 
 import Register from './Register';
 import AdminDashboard from './AdminDashboard'; 
 
-function App() {
+// 🛡️ Security Guard Component
+const ProtectedRoute = ({ children }) => {
+  const isAdmin = localStorage.getItem('role') === 'ROLE_ADMIN';
+  return isAdmin ? children : <Navigate to="/" replace />;
+};
+
+function MainApp() {
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]); 
@@ -12,9 +19,10 @@ function App() {
   const [notification, setNotification] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [isRegistering, setIsRegistering] = useState(false);
-  const [view, setView] = useState('shop'); // 'shop' or 'admin'
 
-  // --- DATA FETCHING ---
+  const navigate = useNavigate(); 
+  const location = useLocation(); 
+
   const fetchProducts = async () => {
     try {
       const response = await fetch('http://localhost:8080/api/products', {
@@ -28,12 +36,9 @@ function App() {
   };
 
   useEffect(() => {
-    if (token) {
-      fetchProducts();
-    }
+    if (token) fetchProducts();
   }, [token]);
 
-  // --- AUTH HANDLERS ---
   const handleLoginSuccess = (data) => {
     localStorage.setItem('token', data.token);
     localStorage.setItem('username', data.username);
@@ -46,11 +51,10 @@ function App() {
     localStorage.clear();
     setToken(null);
     setCart([]);
-    setView('shop');
+    navigate('/'); 
     showToast("Logged out successfully.");
   };
 
-  // --- UI HELPERS ---
   const showToast = (message) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
@@ -69,6 +73,23 @@ function App() {
       }
     });
     showToast(`✅ Added ${product.name} to cart!`);
+  };
+
+  const removeFromCart = (productId) => {
+    setCart((prevCart) => prevCart.filter(item => item.id !== productId));
+    showToast("🗑️ Item removed from cart.");
+  };
+
+  const updateQuantity = (productId, delta) => {
+    setCart((prevCart) => prevCart.map(item => {
+      if (item.id === productId) {
+        const newQuantity = item.cartQuantity + delta;
+        if (newQuantity >= 1 && newQuantity <= item.stockQuantity) {
+          return { ...item, cartQuantity: newQuantity };
+        }
+      }
+      return item;
+    }));
   };
 
   const handleCheckout = async () => {
@@ -95,26 +116,15 @@ function App() {
     }
   };
 
-  // --- COMPUTED VALUES ---
   const isAdmin = localStorage.getItem('role') === 'ROLE_ADMIN';
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
 
-  // 🙈 Filter logic: Admins see everything, customers only see visible items
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.category.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // If the user is an Admin, ignore the hidden status
-    if (isAdmin) {
-      return matchesSearch;
-    } 
-    // If the user is a customer, only return items that are NOT hidden
-    else {
-      return matchesSearch && !product.isHidden;
-    }
+    return isAdmin ? matchesSearch : (matchesSearch && !product.isHidden);
   });
 
-  // --- RENDERING ---
   if (!token) {
     return isRegistering ? (
         <Register onSwitchToLogin={() => setIsRegistering(false)} />
@@ -131,20 +141,26 @@ function App() {
       {notification && <div className="toast-notification">{notification}</div>}
 
       <header className="app-header">
-        <div className="header-brand" onClick={() => setView('shop')} style={{cursor: 'pointer'}}>
+        <div className="header-brand" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
           <h1>Elite Electronics ⚡</h1>
           <p>Excellence in Every Device</p>
         </div>
         <div className="header-actions">
-          {isAdmin && (
-            <button className="nav-btn" onClick={() => setView(view === 'shop' ? 'admin' : 'shop')}>
-              {view === 'shop' ? '⚙️ Dashboard' : '🛒 View Shop'}
+          
+          {isAdmin && location.pathname === '/' && (
+            <button className="nav-btn" onClick={() => navigate('/admin')}>
+              ⚙️ Dashboard
+            </button>
+          )}
+          {isAdmin && location.pathname === '/admin' && (
+            <button className="nav-btn" onClick={() => navigate('/')}>
+              🛒 View Shop
             </button>
           )}
           
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
           
-          {!isAdmin && view === 'shop' && (
+          {!isAdmin && (
             <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)}>
               🛒 Cart {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
             </button>
@@ -152,60 +168,73 @@ function App() {
         </div>
       </header>
       
-      {view === 'admin' ? (
-        <AdminDashboard products={products} onProductAction={fetchProducts} />
-      ) : (
-        <>
-          <div className="search-container">
-            <input 
-              type="text" 
-              placeholder="Search products..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-bar"
-            />
-          </div>
-          
-          <div className="product-list">
-            {filteredProducts.map((product) => (
-              <div key={product.id} className="product-card">
-                <span className="category-tag">{product.category}</span>
-                
-                <h3>
-                  {product.name}
-                  {/* 👁️ NEW: Show a badge if the item is hidden (Admins only) */}
-                  {product.isHidden && (
-                    <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '12px', marginLeft: '10px', verticalAlign: 'middle' }}>
-                      Hidden for customers
-                    </span>
-                  )}
-                </h3>
-
-                <p className="price-tag">${product.price.toFixed(2)}</p>
-                <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e' }}>
-                  {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
-                </p>
-                
-                {!isAdmin && (
-                  <button 
-                    className="add-to-cart-btn"
-                    onClick={() => addToCart(product)}
-                    disabled={product.stockQuantity === 0}
-                  >
-                    Add to Cart
-                  </button>
-                )}
-              </div>
-            ))}
+      <Routes>
+        <Route path="/" element={
+          <>
+            <div className="search-container">
+              <input 
+                type="text" 
+                placeholder="Search products..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-bar"
+              />
+            </div>
             
-            {filteredProducts.length === 0 && (
-              <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem', gridColumn: '1 / -1' }}>
-                No products found.
-              </p>
-            )}
-          </div>
-        </>
-      )}
+            <div className="product-list">
+              {filteredProducts.map((product) => (
+                <div key={product.id} className="product-card">
+                  
+                  {/* 🖼️ NEW: Render the product image */}
+                  <div style={{ width: '100%', height: '200px', backgroundColor: '#f7fafc', marginBottom: '15px', borderRadius: '8px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      <span style={{ color: '#a0aec0' }}>No Image</span>
+                    )}
+                  </div>
+
+                  <span className="category-tag">{product.category}</span>
+                  <h3>
+                    {product.name}
+                    {product.isHidden && (
+                      <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '12px', marginLeft: '10px', verticalAlign: 'middle' }}>
+                        Hidden for customers
+                      </span>
+                    )}
+                  </h3>
+                  <p className="price-tag">${product.price.toFixed(2)}</p>
+                  <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e' }}>
+                    {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
+                  </p>
+                  
+                  {!isAdmin && (
+                    <button 
+                      className="add-to-cart-btn"
+                      onClick={() => addToCart(product)}
+                      disabled={product.stockQuantity === 0}
+                    >
+                      Add to Cart
+                    </button>
+                  )}
+                </div>
+              ))}
+              
+              {filteredProducts.length === 0 && (
+                <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem', gridColumn: '1 / -1' }}>
+                  No products found.
+                </p>
+              )}
+            </div>
+          </>
+        } />
+
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <AdminDashboard products={products} onProductAction={fetchProducts} />
+          </ProtectedRoute>
+        } />
+      </Routes>
 
       {/* --- CART MODAL --- */}
       {isCartOpen && !isAdmin && (
@@ -222,12 +251,41 @@ function App() {
               <>
                 <div className="cart-items">
                   {cart.map((item, index) => (
-                    <div key={index} className="cart-item">
+                    <div key={index} className="cart-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
                       <div>
-                        <h4>{item.name}</h4>
-                        <p>${item.price.toFixed(2)} x {item.cartQuantity}</p>
+                        <h4 style={{ margin: '0 0 5px 0' }}>{item.name}</h4>
+                        <p style={{ margin: '0 0 10px 0', color: '#718096' }}>${item.price.toFixed(2)} each</p>
+                        
+                        {/* 🎛️ Quantity Controls */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button 
+                            onClick={() => updateQuantity(item.id, -1)} 
+                            disabled={item.cartQuantity <= 1} 
+                            style={{ padding: '2px 8px', cursor: item.cartQuantity <= 1 ? 'not-allowed' : 'pointer' }}
+                          >
+                            -
+                          </button>
+                          <span style={{ fontWeight: 'bold' }}>{item.cartQuantity}</span>
+                          <button 
+                            onClick={() => updateQuantity(item.id, 1)} 
+                            disabled={item.cartQuantity >= item.stockQuantity} 
+                            style={{ padding: '2px 8px', cursor: item.cartQuantity >= item.stockQuantity ? 'not-allowed' : 'pointer' }}
+                          >
+                            +
+                          </button>
+                          
+                          {/* 🗑️ Remove Button */}
+                          <button 
+                            onClick={() => removeFromCart(item.id)} 
+                            style={{ marginLeft: '10px', color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
-                      <p className="item-total">${(item.price * item.cartQuantity).toFixed(2)}</p>
+                      <p className="item-total" style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                        ${(item.price * item.cartQuantity).toFixed(2)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -244,4 +302,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <MainApp />
+    </BrowserRouter>
+  );
+}

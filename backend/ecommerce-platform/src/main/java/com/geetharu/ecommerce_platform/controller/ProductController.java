@@ -1,5 +1,6 @@
 package com.geetharu.ecommerce_platform.controller;
 
+import com.geetharu.ecommerce_platform.dto.CartItemDTO;
 import com.geetharu.ecommerce_platform.entity.Product;
 import com.geetharu.ecommerce_platform.service.ProductService;
 import org.springframework.http.ResponseEntity;
@@ -48,7 +49,10 @@ public class ProductController {
             existingProduct.setCategory(productDetails.getCategory());
             existingProduct.setStockQuantity(productDetails.getStockQuantity());
             existingProduct.setSku(productDetails.getSku());
-            existingProduct.setHidden(productDetails.isHidden()); // 🙈 Save visibility
+            existingProduct.setHidden(productDetails.isHidden());
+
+            // 🖼️ NEW: Save the image URL during an update!
+            existingProduct.setImageUrl(productDetails.getImageUrl());
 
             Product updatedProduct = productService.updateProduct(id, existingProduct);
             return ResponseEntity.ok(updatedProduct);
@@ -65,6 +69,16 @@ public class ProductController {
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Could not delete product.");
+        }
+    }
+
+    @PostMapping("/checkout")
+    public ResponseEntity<?> processCheckout(@RequestBody List<CartItemDTO> cartItems) {
+        try {
+            productService.processCheckout(cartItems);
+            return ResponseEntity.ok().body("{\"message\": \"Checkout successful\"}");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("{\"error\": \"" + e.getMessage() + "\"}");
         }
     }
 }

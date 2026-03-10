@@ -1,193 +1,197 @@
 import { useState } from 'react';
 
-function AdminDashboard({ products, onProductAction }) {
-  const [showForm, setShowForm] = useState(false);
-  const [isEditing, setIsEditing] = useState(null); 
-  const [formData, setFormData] = useState({ name: '', price: '', category: '', stockQuantity: '', sku: '', isHidden: false });
+export default function AdminDashboard({ products, onProductAction }) {
+  const [formData, setFormData] = useState({
+    name: '', sku: '', price: '', stockQuantity: '', category: '', isHidden: false, imageUrl: ''
+  });
+  const [editingId, setEditingId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false); 
   
-  const [adminSearchTerm, setAdminSearchTerm] = useState('');
-  const [stockFilter, setStockFilter] = useState('ALL'); // 🎛️ Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); 
+  
+  const token = localStorage.getItem('token');
 
-  const resetForm = () => {
-    setFormData({ name: '', price: '', category: '', stockQuantity: '', sku: '', isHidden: false });
-    setShowForm(false);
-    setIsEditing(null);
-  };
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const handleEditClick = (product) => {
-    setIsEditing(product.id);
-    setFormData({ ...product });
-    setShowForm(true);
+    setIsUploading(true);
+    const data = new FormData();
+    data.append('file', file);
+    data.append('upload_preset', 'Item_info'); 
+    data.append('cloud_name', 'ddfk6oj09');       
+
+    try {
+      const response = await fetch('https://api.cloudinary.com/v1_1/ddfk6oj09/image/upload', {
+        method: 'POST',
+        body: data,
+      });
+      const uploadedData = await response.json();
+      
+      setFormData(prev => ({ ...prev, imageUrl: uploadedData.secure_url }));
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      alert("Failed to upload image.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    const method = isEditing ? 'PUT' : 'POST';
-    const url = isEditing 
-      ? `http://localhost:8080/api/products/${isEditing}` 
+    const url = editingId 
+      ? `http://localhost:8080/api/products/${editingId}` 
       : 'http://localhost:8080/api/products';
-
-    const payload = {
-      ...formData,
-      price: parseFloat(formData.price),
-      stockQuantity: parseInt(formData.stockQuantity),
-      sku: formData.sku || `SKU-${Date.now()}`
-    };
+    const method = editingId ? 'PUT' : 'POST';
 
     try {
       const response = await fetch(url, {
         method: method,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(formData),
       });
 
       if (response.ok) {
-        resetForm();
+        setFormData({ name: '', sku: '', price: '', stockQuantity: '', category: '', isHidden: false, imageUrl: '' });
+        setEditingId(null);
         onProductAction(); 
-      } else {
-        alert("❌ Action failed.");
       }
-    } catch (err) {
-      console.error("Error saving product:", err);
+    } catch (error) {
+      console.error("Failed to save product:", error);
     }
   };
 
-  const handleClearStock = async (product) => {
-    if (!window.confirm(`⚠️ Mark ${product.name} as Out of Stock?`)) return;
-    const token = localStorage.getItem('token');
-    try {
-      const response = await fetch(`http://localhost:8080/api/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ ...product, stockQuantity: 0 })
-      });
-      if (response.ok) onProductAction();
-    } catch (err) { console.error(err); }
+  const editProduct = (product) => {
+    setFormData(product);
+    setEditingId(product.id);
   };
 
-  // 🙈 NEW: Toggle Hide from Customer
-  const handleToggleHide = async (product) => {
-    const token = localStorage.getItem('token');
+  const deleteProduct = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
     try {
-      const response = await fetch(`http://localhost:8080/api/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ ...product, isHidden: !product.isHidden })
-      });
-      if (response.ok) onProductAction();
-    } catch (err) { console.error(err); }
-  };
-
-  const handleDelete = async (productId) => {
-    if (!window.confirm("⚠️ Are you sure? This deletes the item entirely.")) return;
-    const token = localStorage.getItem('token');
-    try {
-      const response = await fetch(`http://localhost:8080/api/products/${productId}`, {
+      await fetch(`http://localhost:8080/api/products/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (response.ok) onProductAction();
-    } catch (err) { console.error(err); }
+      onProductAction();
+    } catch (error) {
+      console.error("Failed to delete product:", error);
+    }
   };
 
-  // 🔍 Filter Logic (Search + Stock Status)
-  const filteredAdminProducts = products.filter(p => {
-    const matchesSearch = 
-      p.name.toLowerCase().includes(adminSearchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(adminSearchTerm.toLowerCase()) ||
-      p.category.toLowerCase().includes(adminSearchTerm.toLowerCase());
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    let matchesFilter = true;
+    if (filterStatus === 'in') matchesFilter = product.stockQuantity > 0;
+    if (filterStatus === 'out') matchesFilter = product.stockQuantity === 0;
 
-    const matchesStock = 
-      stockFilter === 'ALL' || 
-      (stockFilter === 'IN_STOCK' && p.stockQuantity > 0) || 
-      (stockFilter === 'OUT_OF_STOCK' && p.stockQuantity === 0);
-
-    return matchesSearch && matchesStock;
+    return matchesSearch && matchesFilter;
   });
 
   return (
-    <div className="admin-dashboard" style={{ padding: '2rem', backgroundColor: '#f7fafc', minHeight: '80vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h2 style={{ margin: 0 }}>Inventory Management ⚙️</h2>
+    <div className="admin-dashboard">
+      <h2>⚙️ Inventory Management</h2>
+      
+      <form onSubmit={handleSubmit} className="admin-form" style={{ display: 'grid', gap: '10px', maxWidth: '500px', marginBottom: '2rem' }}>
+        <input type="text" placeholder="Product Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+        <input type="text" placeholder="SKU" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} required />
+        <input type="number" placeholder="Price" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required step="0.01" />
+        <input type="number" placeholder="Stock Quantity" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} required />
+        <input type="text" placeholder="Category" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required />
         
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input 
-            type="text" 
-            placeholder="🔍 Search Name, SKU, Category..." 
-            value={adminSearchTerm}
-            onChange={(e) => setAdminSearchTerm(e.target.value)}
-            style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #cbd5e0' }}
-          />
-          <select 
-            value={stockFilter} 
-            onChange={(e) => setStockFilter(e.target.value)}
-            style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e0', cursor: 'pointer' }}
-          >
-            <option value="ALL">All Stock</option>
-            <option value="IN_STOCK">In Stock (>0)</option>
-            <option value="OUT_OF_STOCK">Out of Stock (0)</option>
-          </select>
+        <div style={{ border: '1px dashed #ccc', padding: '10px', borderRadius: '4px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>Product Image:</label>
+          <input type="file" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
+          {isUploading && <span style={{ marginLeft: '10px', color: '#3182ce' }}>Uploading to cloud... ⏳</span>}
+          {formData.imageUrl && (
+            <div style={{ marginTop: '10px' }}>
+              <img src={formData.imageUrl} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }} />
+              <button type="button" onClick={() => setFormData({...formData, imageUrl: ''})} style={{ display: 'block', marginTop: '5px', color: 'red', cursor: 'pointer', background: 'none', border: 'none' }}>Remove Image</button>
+            </div>
+          )}
         </div>
 
-        <button className="login-btn" onClick={() => { if(showForm) resetForm(); else setShowForm(true); }}>
-          {showForm ? "Cancel" : "＋ Add New Product"}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input type="checkbox" checked={formData.isHidden} onChange={e => setFormData({...formData, isHidden: e.target.checked})} />
+          🙈 Hide from public store
+        </label>
+        
+        <button type="submit" disabled={isUploading}>
+          {editingId ? 'Update Product' : 'Add Product'}
         </button>
+        {editingId && <button type="button" onClick={() => {setFormData({name: '', sku: '', price: '', stockQuantity: '', category: '', isHidden: false, imageUrl: ''}); setEditingId(null);}}>Cancel Edit</button>}
+      </form>
+
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem', alignItems: 'center' }}>
+        <input 
+          type="text" 
+          placeholder="Search by name, SKU, or category..." 
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{ padding: '8px', width: '300px', borderRadius: '4px', border: '1px solid #ccc' }}
+        />
+        <select 
+          value={filterStatus} 
+          onChange={e => setFilterStatus(e.target.value)}
+          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+        >
+          <option value="all">All Items</option>
+          <option value="in">In Stock Only</option>
+          <option value="out">Out of Stock Only</option>
+        </select>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="login-form" style={{ maxWidth: '500px', margin: '0 auto 2rem', background: 'white', padding: '20px', borderRadius: '12px' }}>
-          <h3>{isEditing ? "Edit Product" : "New Product Details"}</h3>
-          <input type="text" placeholder="Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-          <input type="text" placeholder="SKU" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} />
-          <input type="number" step="0.01" placeholder="Price" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
-          <input type="text" placeholder="Category" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
-          <input type="number" placeholder="Stock" required value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} />
-          <button type="submit" className="login-btn" style={{ width: '100%', marginTop: '10px' }}>
-            {isEditing ? "Update Product" : "Save to Database"}
-          </button>
-        </form>
-      )}
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '10px' }}>
-        <thead style={{ backgroundColor: '#4a5568', color: 'white' }}>
+      <table className="admin-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+        <thead>
           <tr>
-            <th style={{ padding: '15px' }}>Status</th>
-            <th>SKU</th>
+            <th>Image</th>
             <th>Name</th>
+            <th>SKU</th> {/* Restored SKU Header */}
+            <th>Category</th>
             <th>Price</th>
             <th>Stock</th>
+            <th>Visibility</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {filteredAdminProducts.map(p => (
-            <tr key={p.id} style={{ borderBottom: '1px solid #edf2f7', textAlign: 'center', opacity: p.isHidden ? 0.6 : 1 }}>
-              <td style={{ fontSize: '1.2rem' }}>{p.isHidden ? '🙈' : '👁️'}</td>
-              <td style={{ padding: '12px', color: '#718096' }}>{p.sku}</td>
-              <td style={{ fontWeight: '500' }}>{p.name} {p.isHidden && <span style={{fontSize: '0.7rem', color: 'red', display: 'block'}}>Hidden</span>}</td>
-              <td>${p.price.toFixed(2)}</td>
-              <td style={{ color: p.stockQuantity < 1 ? 'red' : 'green', fontWeight: 'bold' }}>{p.stockQuantity}</td>
+          {filteredProducts.map(product => (
+            <tr key={product.id} style={{ borderBottom: '1px solid #eee' }}>
               <td>
-                <button onClick={() => handleToggleHide(p)} title={p.isHidden ? "Show to Customers" : "Hide from Customers"} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px', fontSize: '1.2rem' }}>
-                  {p.isHidden ? '👁️' : '🙈'}
-                </button>
-                <button onClick={() => handleEditClick(p)} title="Edit Product" style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px', fontSize: '1.2rem' }}>✏️</button>
-                <button onClick={() => handleClearStock(p)} title="Set Stock to 0" style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px', fontSize: '1.2rem' }}>📦↘️0</button>
-                <button onClick={() => handleDelete(p.id)} title="Delete Entirely" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>🗑️</button>
+                {product.imageUrl ? (
+                  <img src={product.imageUrl} alt={product.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
+                ) : (
+                  <span style={{ color: '#aaa' }}>No image</span>
+                )}
+              </td>
+              <td>{product.name}</td>
+              <td>{product.sku}</td> {/* Restored SKU Cell */}
+              <td>{product.category}</td>
+              <td>${product.price?.toFixed(2)}</td>
+              <td>{product.stockQuantity}</td>
+              <td>{product.isHidden ? '🙈 Hidden' : '👁️ Visible'}</td>
+              <td>
+                <button onClick={() => editProduct(product)} style={{ marginRight: '5px' }}>Edit</button>
+                <button onClick={() => deleteProduct(product.id)} style={{ background: '#e53e3e', color: 'white' }}>Delete</button>
               </td>
             </tr>
           ))}
-          {filteredAdminProducts.length === 0 && (
-            <tr><td colSpan="6" style={{ padding: '2rem', color: '#a0aec0' }}>No products found.</td></tr>
+          {filteredProducts.length === 0 && (
+            <tr>
+              <td colSpan="8" style={{ textAlign: 'center', padding: '1rem', color: '#718096' }}>
+                No products match your search/filter.
+              </td>
+            </tr>
           )}
         </tbody>
       </table>
     </div>
   );
 }
-
-export default AdminDashboard;
