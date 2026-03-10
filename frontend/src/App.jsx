@@ -4,6 +4,7 @@ import './App.css';
 import Login from './Login'; 
 import Register from './Register';
 import AdminDashboard from './AdminDashboard'; 
+import ProductDetails from './ProductDetails';
 
 // 🛡️ Security Guard Component
 const ProtectedRoute = ({ children }) => {
@@ -14,6 +15,11 @@ const ProtectedRoute = ({ children }) => {
 function MainApp() {
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  
+  // ↕️ NEW: State to track sorting preference
+  const [sortOrder, setSortOrder] = useState('default');
+  
   const [cart, setCart] = useState([]); 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -60,7 +66,6 @@ function MainApp() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // --- CART LOGIC ---
   const addToCart = (product) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
@@ -119,10 +124,23 @@ function MainApp() {
   const isAdmin = localStorage.getItem('role') === 'ROLE_ADMIN';
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
 
+  const uniqueCategories = ['All', ...new Set(products.map(p => p.category))];
+
+  // 1. Filter the products first
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return isAdmin ? matchesSearch : (matchesSearch && !product.isHidden);
+    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+    const isVisible = isAdmin ? true : !product.isHidden;
+    
+    return matchesSearch && matchesCategory && isVisible;
+  });
+
+  // ↕️ 2. NEW: Sort the filtered products before rendering them
+  const sortedAndFilteredProducts = [...filteredProducts].sort((a, b) => {
+    if (sortOrder === 'price-asc') return a.price - b.price;
+    if (sortOrder === 'price-desc') return b.price - a.price;
+    return 0; // 'default' leaves it as it came from the database
   });
 
   if (!token) {
@@ -170,63 +188,115 @@ function MainApp() {
       
       <Routes>
         <Route path="/" element={
-          <>
-            <div className="search-container">
-              <input 
-                type="text" 
-                placeholder="Search products..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="search-bar"
-              />
-            </div>
+          <div style={{ display: 'flex', gap: '2rem', padding: '2rem', width: '100%', boxSizing: 'border-box' }}>
             
-            <div className="product-list">
-              {filteredProducts.map((product) => (
-                <div key={product.id} className="product-card">
-                  
-                  {/* 🖼️ NEW: Render the product image */}
-                  <div style={{ width: '100%', height: '200px', backgroundColor: '#f7fafc', marginBottom: '15px', borderRadius: '8px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <span style={{ color: '#a0aec0' }}>No Image</span>
+            <aside style={{ width: '220px', flexShrink: 0 }}>
+              <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '1rem', borderBottom: '2px solid #edf2f7', paddingBottom: '0.5rem', fontSize: '1rem' }}>Categories</h3>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {uniqueCategories.map(category => (
+                    <li key={category} style={{ marginBottom: '0.25rem' }}>
+                      <button
+                        onClick={() => setSelectedCategory(category)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 10px',
+                          backgroundColor: selectedCategory === category ? '#3182ce' : 'transparent',
+                          color: selectedCategory === category ? 'white' : '#4a5568',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: selectedCategory === category ? 'bold' : 'normal',
+                          fontSize: '0.9rem',
+                          transition: 'background-color 0.2s'
+                        }}
+                      >
+                        {category}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
+
+            <main style={{ flex: 1 }}>
+              {/* ↕️ NEW: Flex container to put Search and Sort side-by-side */}
+              <div className="search-sort-container" style={{ display: 'flex', gap: '15px', marginBottom: '1.5rem' }}>
+                <input 
+                  type="text" 
+                  placeholder="Search products..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="search-bar"
+                  style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '0.95rem' }}
+                />
+                <select 
+                  value={sortOrder} 
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '0.95rem', cursor: 'pointer', backgroundColor: 'white' }}
+                >
+                  <option value="default">Sort by: Default</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                </select>
+              </div>
+              
+              <div className="product-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
+                {/* ↕️ NEW: Map over the sortedAndFilteredProducts array! */}
+                {sortedAndFilteredProducts.map((product) => (
+                  <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
+                    
+                    <div 
+                      onClick={() => navigate(`/product/${product.id}`)}
+                      style={{ width: '100%', height: '180px', backgroundColor: '#f7fafc', marginBottom: '10px', borderRadius: '6px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
+                    >
+                      {product.imageUrl ? (
+                        <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      ) : (
+                        <span style={{ color: '#a0aec0', fontSize: '0.8rem' }}>No Image</span>
+                      )}
+                    </div>
+
+                    <span className="category-tag" style={{ alignSelf: 'flex-start', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#4a5568', marginBottom: '8px', fontWeight: '500' }}>{product.category}</span>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748' }}>
+                      {product.name}
+                      {product.isHidden && (
+                        <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 4px', borderRadius: '3px', fontSize: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
+                          Hidden
+                        </span>
+                      )}
+                    </h3>
+                    <p className="price-tag" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0 0 8px 0' }}>${product.price.toFixed(2)}</p>
+                    <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e', fontSize: '0.85rem', marginBottom: '15px', flex: 1 }}>
+                      {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
+                    </p>
+                    
+                    {!isAdmin && (
+                      <button 
+                        className="add-to-cart-btn"
+                        onClick={() => addToCart(product)}
+                        disabled={product.stockQuantity === 0}
+                        style={{ width: '100%', padding: '10px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.95rem', transition: 'background-color 0.2s' }}
+                      >
+                        {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart 🛒'}
+                      </button>
                     )}
                   </div>
-
-                  <span className="category-tag">{product.category}</span>
-                  <h3>
-                    {product.name}
-                    {product.isHidden && (
-                      <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '12px', marginLeft: '10px', verticalAlign: 'middle' }}>
-                        Hidden for customers
-                      </span>
-                    )}
-                  </h3>
-                  <p className="price-tag">${product.price.toFixed(2)}</p>
-                  <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e' }}>
-                    {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
+                ))}
+                
+                {sortedAndFilteredProducts.length === 0 && (
+                  <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem', gridColumn: '1 / -1' }}>
+                    No products match your criteria.
                   </p>
-                  
-                  {!isAdmin && (
-                    <button 
-                      className="add-to-cart-btn"
-                      onClick={() => addToCart(product)}
-                      disabled={product.stockQuantity === 0}
-                    >
-                      Add to Cart
-                    </button>
-                  )}
-                </div>
-              ))}
-              
-              {filteredProducts.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem', gridColumn: '1 / -1' }}>
-                  No products found.
-                </p>
-              )}
-            </div>
-          </>
+                )}
+              </div>
+            </main>
+          </div>
+        } />
+
+        <Route path="/product/:id" element={
+          <ProductDetails addToCart={addToCart} />
         } />
 
         <Route path="/admin" element={
@@ -256,7 +326,6 @@ function MainApp() {
                         <h4 style={{ margin: '0 0 5px 0' }}>{item.name}</h4>
                         <p style={{ margin: '0 0 10px 0', color: '#718096' }}>${item.price.toFixed(2)} each</p>
                         
-                        {/* 🎛️ Quantity Controls */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <button 
                             onClick={() => updateQuantity(item.id, -1)} 
@@ -274,7 +343,6 @@ function MainApp() {
                             +
                           </button>
                           
-                          {/* 🗑️ Remove Button */}
                           <button 
                             onClick={() => removeFromCart(item.id)} 
                             style={{ marginLeft: '10px', color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}

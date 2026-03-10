@@ -5,7 +5,8 @@ body {
 }
 
 .App {
-  max-width: 1100px;
+  max-width: 100%; /* 🛠️ FIXED: Now stretches to fill the screen */
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 20px;
 }
@@ -84,8 +85,8 @@ body {
 /* Grid & Cards */
 .product-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 30px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* 🛠️ FIXED: Shrunk from 280px to fit more cards */
+  gap: 25px; /* 🛠️ FIXED: Slightly tighter gap */
 }
 
 .product-card {
