@@ -85,8 +85,9 @@ body {
 /* Grid & Cards */
 .product-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* 🛠️ FIXED: Shrunk from 280px to fit more cards */
-  gap: 25px; /* 🛠️ FIXED: Slightly tighter gap */
+  /* We are dropping the minimum width to 180px and the gap to 20px */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+  gap: 20px; 
 }
 
 .product-card {

@@ -6,7 +6,6 @@ import Register from './Register';
 import AdminDashboard from './AdminDashboard'; 
 import ProductDetails from './ProductDetails';
 
-// 🛡️ Security Guard Component
 const ProtectedRoute = ({ children }) => {
   const isAdmin = localStorage.getItem('role') === 'ROLE_ADMIN';
   return isAdmin ? children : <Navigate to="/" replace />;
@@ -16,8 +15,6 @@ function MainApp() {
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  
-  // ↕️ NEW: State to track sorting preference
   const [sortOrder, setSortOrder] = useState('default');
   
   const [cart, setCart] = useState([]); 
@@ -126,7 +123,6 @@ function MainApp() {
 
   const uniqueCategories = ['All', ...new Set(products.map(p => p.category))];
 
-  // 1. Filter the products first
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -136,12 +132,19 @@ function MainApp() {
     return matchesSearch && matchesCategory && isVisible;
   });
 
-  // ↕️ 2. NEW: Sort the filtered products before rendering them
   const sortedAndFilteredProducts = [...filteredProducts].sort((a, b) => {
     if (sortOrder === 'price-asc') return a.price - b.price;
     if (sortOrder === 'price-desc') return b.price - a.price;
-    return 0; // 'default' leaves it as it came from the database
+    return 0; 
   });
+
+  // 🏷️ NEW: Logic to determine which badge to show
+  const getBadge = (stock) => {
+    if (stock === 0) return { text: 'Sold Out ❌', bg: '#e53e3e' };
+    if (stock === 1) return { text: 'Last One! 🚨', bg: '#dd6b20' };
+    if (stock > 1 && stock <= 5) return { text: 'Selling Fast! 🔥', bg: '#d69e2e' };
+    return null;
+  };
 
   if (!token) {
     return isRegistering ? (
@@ -221,7 +224,6 @@ function MainApp() {
             </aside>
 
             <main style={{ flex: 1 }}>
-              {/* ↕️ NEW: Flex container to put Search and Sort side-by-side */}
               <div className="search-sort-container" style={{ display: 'flex', gap: '15px', marginBottom: '1.5rem' }}>
                 <input 
                   type="text" 
@@ -243,47 +245,58 @@ function MainApp() {
               </div>
               
               <div className="product-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-                {/* ↕️ NEW: Map over the sortedAndFilteredProducts array! */}
-                {sortedAndFilteredProducts.map((product) => (
-                  <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
-                    
-                    <div 
-                      onClick={() => navigate(`/product/${product.id}`)}
-                      style={{ width: '100%', height: '180px', backgroundColor: '#f7fafc', marginBottom: '10px', borderRadius: '6px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
-                    >
-                      {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                      ) : (
-                        <span style={{ color: '#a0aec0', fontSize: '0.8rem' }}>No Image</span>
+                {sortedAndFilteredProducts.map((product) => {
+                  const badge = getBadge(product.stockQuantity); // 🏷️ Generate badge data
+
+                  return (
+                    <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
+                      
+                      {/* 🏷️ Added position: relative so the badge can overlap the image */}
+                      <div 
+                        onClick={() => navigate(`/product/${product.id}`)}
+                        style={{ position: 'relative', width: '100%', height: '180px', backgroundColor: '#f7fafc', marginBottom: '10px', borderRadius: '6px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
+                      >
+                        {/* 🏷️ Render the badge conditionally */}
+                        {badge && (
+                          <span style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: badge.bg, color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                            {badge.text}
+                          </span>
+                        )}
+
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <span style={{ color: '#a0aec0', fontSize: '0.8rem' }}>No Image</span>
+                        )}
+                      </div>
+
+                      <span className="category-tag" style={{ alignSelf: 'flex-start', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#4a5568', marginBottom: '8px', fontWeight: '500' }}>{product.category}</span>
+                      <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748' }}>
+                        {product.name}
+                        {product.isHidden && (
+                          <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 4px', borderRadius: '3px', fontSize: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
+                            Hidden
+                          </span>
+                        )}
+                      </h3>
+                      <p className="price-tag" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0 0 8px 0' }}>${product.price.toFixed(2)}</p>
+                      <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e', fontSize: '0.85rem', marginBottom: '15px', flex: 1 }}>
+                        {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
+                      </p>
+                      
+                      {!isAdmin && (
+                        <button 
+                          className="add-to-cart-btn"
+                          onClick={() => addToCart(product)}
+                          disabled={product.stockQuantity === 0}
+                          style={{ width: '100%', padding: '10px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.95rem', transition: 'background-color 0.2s' }}
+                        >
+                          {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart 🛒'}
+                        </button>
                       )}
                     </div>
-
-                    <span className="category-tag" style={{ alignSelf: 'flex-start', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#4a5568', marginBottom: '8px', fontWeight: '500' }}>{product.category}</span>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748' }}>
-                      {product.name}
-                      {product.isHidden && (
-                        <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 4px', borderRadius: '3px', fontSize: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
-                          Hidden
-                        </span>
-                      )}
-                    </h3>
-                    <p className="price-tag" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0 0 8px 0' }}>${product.price.toFixed(2)}</p>
-                    <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e', fontSize: '0.85rem', marginBottom: '15px', flex: 1 }}>
-                      {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
-                    </p>
-                    
-                    {!isAdmin && (
-                      <button 
-                        className="add-to-cart-btn"
-                        onClick={() => addToCart(product)}
-                        disabled={product.stockQuantity === 0}
-                        style={{ width: '100%', padding: '10px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.95rem', transition: 'background-color 0.2s' }}
-                      >
-                        {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart 🛒'}
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
                 
                 {sortedAndFilteredProducts.length === 0 && (
                   <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem', gridColumn: '1 / -1' }}>
@@ -306,7 +319,6 @@ function MainApp() {
         } />
       </Routes>
 
-      {/* --- CART MODAL --- */}
       {isCartOpen && !isAdmin && (
         <div className="cart-modal-overlay" onClick={() => setIsCartOpen(false)}>
           <div className="cart-modal" onClick={e => e.stopPropagation()}>
