@@ -1,5 +1,5 @@
 ### Create a new product
-POST http://localhost:8080/api/products
+POST http://https://geetharu-elite-electronics-backend.hf.space/api/products
 Content-Type: application/json
 
 {
@@ -11,13 +11,13 @@ Content-Type: application/json
 }
 
 ### Get all products
-GET http://localhost:8080/api/products
+GET http://https://geetharu-elite-electronics-backend.hf.space/api/products
 
 ### Get a specific product by ID
-GET http://localhost:8080/api/products/1
+GET http://https://geetharu-elite-electronics-backend.hf.space/api/products/1
 
 ### Update a product's price
-PUT http://localhost:8080/api/products/1
+PUT http://https://geetharu-elite-electronics-backend.hf.space/api/products/1
 Content-Type: application/json
 
 {
@@ -29,7 +29,7 @@ Content-Type: application/json
 }
 
 ### Delete a specific product
-DELETE http://localhost:8080/api/products/1
+DELETE http://https://geetharu-elite-electronics-backend.hf.space/api/products/1
 
 ### Get products by category
-GET http://localhost:8080/api/products/category/laptop
+GET http://https://geetharu-elite-electronics-backend.hf.space/api/products/category/laptop
