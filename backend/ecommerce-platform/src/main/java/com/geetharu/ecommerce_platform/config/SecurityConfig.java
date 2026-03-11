@@ -36,7 +36,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration cfg = new CorsConfiguration();
-                    cfg.setAllowedOrigins(List.of("http://localhost:5173"));
+                    // 🚀 BOTH URLS ADDED BELOW: Cloud (Vercel) and Local
+                    cfg.setAllowedOrigins(List.of(
+                            "https://elite-electronics-store.vercel.app",
+                            "http://localhost:5173"
+                    ));
                     cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                     cfg.setAllowedHeaders(List.of("*"));
                     cfg.setAllowCredentials(true);

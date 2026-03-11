@@ -28,7 +28,7 @@ function MainApp() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products`, {
+      const response = await fetch(`https://geetharu-elite-electronics-backend.hf.space/api/products`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -96,7 +96,7 @@ function MainApp() {
 
   const handleCheckout = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products/checkout`, {
+      const response = await fetch(`https://geetharu-elite-electronics-backend.hf.space/api/products/checkout`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
