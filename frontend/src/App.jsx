@@ -7,7 +7,8 @@ import AdminDashboard from './AdminDashboard';
 import ProductDetails from './ProductDetails';
 
 const ProtectedRoute = ({ children }) => {
-  const isAdmin = localStorage.getItem('role') === 'ROLE_ADMIN';
+  // 🔄 Switched to sessionStorage
+  const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
   return isAdmin ? children : <Navigate to="/" replace />;
 };
 
@@ -20,7 +21,8 @@ function MainApp() {
   const [cart, setCart] = useState([]); 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  // 🔄 Switched to sessionStorage
+  const [token, setToken] = useState(sessionStorage.getItem('token'));
   const [isRegistering, setIsRegistering] = useState(false);
 
   const navigate = useNavigate(); 
@@ -43,15 +45,17 @@ function MainApp() {
   }, [token]);
 
   const handleLoginSuccess = (data) => {
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('username', data.username);
-    localStorage.setItem('role', data.role);
+    // 🔄 Switched to sessionStorage
+    sessionStorage.setItem('token', data.token);
+    sessionStorage.setItem('username', data.username);
+    sessionStorage.setItem('role', data.role);
     setToken(data.token);
     showToast(`👋 Welcome back, ${data.username}!`);
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    // 🔄 Switched to sessionStorage
+    sessionStorage.clear();
     setToken(null);
     setCart([]);
     navigate('/'); 
@@ -118,7 +122,8 @@ function MainApp() {
     }
   };
 
-  const isAdmin = localStorage.getItem('role') === 'ROLE_ADMIN';
+  // 🔄 Switched to sessionStorage
+  const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
 
   const uniqueCategories = ['All', ...new Set(products.map(p => p.category))];
@@ -138,7 +143,6 @@ function MainApp() {
     return 0; 
   });
 
-  // 🏷️ NEW: Logic to determine which badge to show
   const getBadge = (stock) => {
     if (stock === 0) return { text: 'Sold Out ❌', bg: '#e53e3e' };
     if (stock === 1) return { text: 'Last One! 🚨', bg: '#dd6b20' };
@@ -246,17 +250,15 @@ function MainApp() {
               
               <div className="product-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
                 {sortedAndFilteredProducts.map((product) => {
-                  const badge = getBadge(product.stockQuantity); // 🏷️ Generate badge data
+                  const badge = getBadge(product.stockQuantity); 
 
                   return (
                     <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
                       
-                      {/* 🏷️ Added position: relative so the badge can overlap the image */}
                       <div 
                         onClick={() => navigate(`/product/${product.id}`)}
                         style={{ position: 'relative', width: '100%', height: '180px', backgroundColor: '#f7fafc', marginBottom: '10px', borderRadius: '6px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
                       >
-                        {/* 🏷️ Render the badge conditionally */}
                         {badge && (
                           <span style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: badge.bg, color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                             {badge.text}
