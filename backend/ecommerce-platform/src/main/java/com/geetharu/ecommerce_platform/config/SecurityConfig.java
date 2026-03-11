@@ -48,8 +48,17 @@ public class SecurityConfig {
                 }))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // 🔓 ALLOW PRE-FLIGHT CHECKS
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/products/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+
+                        // 🚀 NEW: Let Stripe access the Webhook URL without logging in
+                        .requestMatchers("/api/payment/webhook").permitAll()
+
+                        // 💳 EXPLICITLY REQUIRE AUTH FOR OTHER PAYMENTS
+                        .requestMatchers("/api/payment/**").authenticated()
                         .anyRequest().authenticated()
                 );
 

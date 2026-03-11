@@ -5,9 +5,10 @@ import Login from './Login';
 import Register from './Register';
 import AdminDashboard from './AdminDashboard'; 
 import ProductDetails from './ProductDetails';
+import Success from './Success'; 
+import Cart from './Cart'; // 🚀 IMPORTED FULL CART PAGE
 
 const ProtectedRoute = ({ children }) => {
-  // 🔄 Switched to sessionStorage
   const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
   return isAdmin ? children : <Navigate to="/" replace />;
 };
@@ -18,10 +19,19 @@ function MainApp() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortOrder, setSortOrder] = useState('default');
   
-  const [cart, setCart] = useState([]); 
+  // 🛒 CART MEMORY FIX: Load from localStorage on startup
+  const [cart, setCart] = useState(() => {
+    const savedCart = localStorage.getItem('cart');
+    return savedCart ? JSON.parse(savedCart) : [];
+  }); 
+
+  // 💾 CART MEMORY FIX: Save to localStorage whenever cart changes
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [notification, setNotification] = useState(null);
-  // 🔄 Switched to sessionStorage
   const [token, setToken] = useState(sessionStorage.getItem('token'));
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -30,7 +40,7 @@ function MainApp() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`https://geetharu-elite-electronics-backend.hf.space/api/products`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -45,7 +55,6 @@ function MainApp() {
   }, [token]);
 
   const handleLoginSuccess = (data) => {
-    // 🔄 Switched to sessionStorage
     sessionStorage.setItem('token', data.token);
     sessionStorage.setItem('username', data.username);
     sessionStorage.setItem('role', data.role);
@@ -54,8 +63,8 @@ function MainApp() {
   };
 
   const handleLogout = () => {
-    // 🔄 Switched to sessionStorage
     sessionStorage.clear();
+    localStorage.removeItem('cart'); // 🧹 Clear cart on logout
     setToken(null);
     setCart([]);
     navigate('/'); 
@@ -100,7 +109,7 @@ function MainApp() {
 
   const handleCheckout = async () => {
     try {
-      const response = await fetch(`https://geetharu-elite-electronics-backend.hf.space/api/products/checkout`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payment/create-checkout-session`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -110,22 +119,18 @@ function MainApp() {
       });
 
       if (response.ok) {
-        showToast("🚀 Order placed successfully!");
-        setCart([]); 
-        setIsCartOpen(false);
-        fetchProducts(); 
+        const data = await response.json();
+        window.location.href = data.url; 
       } else {
-        showToast("❌ Checkout failed.");
+        showToast("❌ Checkout failed to initialize.");
       }
     } catch (error) {
       showToast("❌ Server connection lost.");
     }
   };
 
-  // 🔄 Switched to sessionStorage
   const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
-
   const uniqueCategories = ['All', ...new Set(products.map(p => p.category))];
 
   const filteredProducts = products.filter(product => {
@@ -314,10 +319,27 @@ function MainApp() {
           <ProductDetails addToCart={addToCart} />
         } />
 
+        {/* 🚀 ADDED THE NEW FULL CART ROUTE HERE */}
+        <Route path="/cart" element={
+          <Cart 
+            cart={cart} 
+            updateQuantity={updateQuantity} 
+            removeFromCart={removeFromCart} 
+            handleCheckout={handleCheckout} 
+          />
+        } />
+
         <Route path="/admin" element={
           <ProtectedRoute>
             <AdminDashboard products={products} onProductAction={fetchProducts} />
           </ProtectedRoute>
+        } />
+
+        <Route path="/success" element={
+          <Success clearCart={() => {
+            setCart([]);
+            localStorage.removeItem('cart');
+          }} />
         } />
       </Routes>
 
@@ -373,7 +395,8 @@ function MainApp() {
                 </div>
                 <div className="cart-footer">
                   <h3>Total: ${cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0).toFixed(2)}</h3>
-                  <button className="checkout-btn" onClick={handleCheckout}>Checkout</button>
+                  {/* 🚀 Changed to navigate to full cart page for final review instead of checking out immediately from modal */}
+                  <button className="checkout-btn" onClick={() => { setIsCartOpen(false); navigate('/cart'); }}>Review Cart</button>
                 </div>
               </>
             )}
