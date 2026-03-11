@@ -40,9 +40,10 @@ export default function AdminDashboard({ products, onProductAction }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // 🚀 FIXED: Hardcoded the clean cloud URL
     const url = editingId
-      ? `${import.meta.env.VITE_API_URL}/api/products/${editingId}` 
-      : `${import.meta.env.VITE_API_URL}/api/products`;
+      ? `https://geetharu-elite-electronics-backend.hf.space/api/products/${editingId}` 
+      : `https://geetharu-elite-electronics-backend.hf.space/api/products`;
     const method = editingId ? 'PUT' : 'POST';
 
     try {
@@ -73,7 +74,8 @@ export default function AdminDashboard({ products, onProductAction }) {
   const deleteProduct = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, {
+      // 🚀 FIXED: Hardcoded the clean cloud URL
+      await fetch(`https://geetharu-elite-electronics-backend.hf.space/api/products/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -153,7 +155,7 @@ export default function AdminDashboard({ products, onProductAction }) {
           <tr>
             <th>Image</th>
             <th>Name</th>
-            <th>SKU</th> {/* Restored SKU Header */}
+            <th>SKU</th> 
             <th>Category</th>
             <th>Price</th>
             <th>Stock</th>
@@ -172,7 +174,7 @@ export default function AdminDashboard({ products, onProductAction }) {
                 )}
               </td>
               <td>{product.name}</td>
-              <td>{product.sku}</td> {/* Restored SKU Cell */}
+              <td>{product.sku}</td> 
               <td>{product.category}</td>
               <td>${product.price?.toFixed(2)}</td>
               <td>{product.stockQuantity}</td>
