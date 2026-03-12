@@ -10,7 +10,8 @@ export default function AdminDashboard({ products, onProductAction }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); 
   
-  const token = localStorage.getItem('token');
+  // 🔒 BUG 1 FIXED: Changed to sessionStorage to match App.jsx
+  const token = sessionStorage.getItem('token');
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -40,10 +41,9 @@ export default function AdminDashboard({ products, onProductAction }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // 🚀 FIXED: Hardcoded the clean cloud URL
-    const url = editingId
-      ? `https://geetharu-elite-electronics-backend.hf.space/api/products/${editingId}` 
-      : `https://geetharu-elite-electronics-backend.hf.space/api/products`;
+    // 🚀 BUG 2 FIXED: Using your environment variable instead of sleeping Hugging Face URL
+    const baseUrl = `${import.meta.env.VITE_API_URL}/api/products`;
+    const url = editingId ? `${baseUrl}/${editingId}` : baseUrl;
     const method = editingId ? 'PUT' : 'POST';
 
     try {
@@ -60,9 +60,13 @@ export default function AdminDashboard({ products, onProductAction }) {
         setFormData({ name: '', sku: '', price: '', stockQuantity: '', category: '', isHidden: false, imageUrl: '' });
         setEditingId(null);
         onProductAction(); 
+      } else {
+        const errText = await response.text();
+        console.error("Failed to save product:", errText);
+        alert("Error saving product. Check console.");
       }
     } catch (error) {
-      console.error("Failed to save product:", error);
+      console.error("Failed to connect to backend:", error);
     }
   };
 
@@ -74,8 +78,8 @@ export default function AdminDashboard({ products, onProductAction }) {
   const deleteProduct = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
     try {
-      // 🚀 FIXED: Hardcoded the clean cloud URL
-      await fetch(`https://geetharu-elite-electronics-backend.hf.space/api/products/${id}`, {
+      // 🚀 BUG 2 FIXED: Replaced hardcoded URL here too
+      await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

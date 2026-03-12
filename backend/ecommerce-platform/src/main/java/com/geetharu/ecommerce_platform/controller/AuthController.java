@@ -33,10 +33,9 @@ public class AuthController {
         // 2. Encode password (CRITICAL)
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        // 3. Set default role if not provided
-        if (user.getRole() == null || user.getRole().isEmpty()) {
-            user.setRole("ROLE_USER");
-        }
+        // 3. 🔒 FORT KNOX FIX: Force EVERY new user to be a standard user.
+        // We ignore whatever role they tried to send in the request.
+        user.setRole("ROLE_USER");
 
         // 4. Save and return success
         userRepository.save(user);

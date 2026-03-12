@@ -3,7 +3,6 @@ import { useState } from 'react';
 export default function Register({ onSwitchToLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('ROLE_USER');
   const [message, setMessage] = useState({ text: '', type: '' });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -16,7 +15,8 @@ export default function Register({ onSwitchToLogin }) {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, role }),
+        // 🔒 FIX: We no longer send a role parameter at all.
+        body: JSON.stringify({ username, password }),
       });
 
       if (response.ok) {
@@ -70,17 +70,7 @@ export default function Register({ onSwitchToLogin }) {
               placeholder="Create a password"
             />
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', color: '#4a5568', fontWeight: '600', fontSize: '0.9rem' }}>Account Type</label>
-            <select 
-              value={role} 
-              onChange={(e) => setRole(e.target.value)}
-              style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '1rem', boxSizing: 'border-box', outline: 'none', backgroundColor: 'white', cursor: 'pointer' }}
-            >
-              <option value="ROLE_USER">Customer</option>
-              <option value="ROLE_ADMIN">Store Admin</option>
-            </select>
-          </div>
+          
           <button 
             type="submit" 
             disabled={isLoading}
