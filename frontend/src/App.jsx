@@ -6,7 +6,8 @@ import Register from './Register';
 import AdminDashboard from './AdminDashboard'; 
 import ProductDetails from './ProductDetails';
 import Success from './Success'; 
-import Cart from './Cart'; // 🚀 IMPORTED FULL CART PAGE
+import Cart from './Cart';
+import OrderHistory from './OrderHistory';
 
 const ProtectedRoute = ({ children }) => {
   const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
@@ -188,13 +189,20 @@ function MainApp() {
             </button>
           )}
           
-          <button className="logout-btn" onClick={handleLogout}>Logout</button>
-          
+          {/* 🚀 ADDED THE ORDERS BUTTON HERE FOR NORMAL USERS */}
           {!isAdmin && (
-            <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)}>
+            <button className="nav-btn" onClick={() => navigate('/orders')} style={{ marginRight: '10px' }}>
+              📦 My Orders
+            </button>
+          )}
+
+          {!isAdmin && (
+            <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)} style={{ marginRight: '10px' }}>
               🛒 Cart {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
             </button>
           )}
+
+          <button className="logout-btn" onClick={handleLogout}>Logout</button>
         </div>
       </header>
       
@@ -318,8 +326,7 @@ function MainApp() {
         <Route path="/product/:id" element={
           <ProductDetails addToCart={addToCart} />
         } />
-
-        {/* 🚀 ADDED THE NEW FULL CART ROUTE HERE */}
+        
         <Route path="/cart" element={
           <Cart 
             cart={cart} 
@@ -334,6 +341,8 @@ function MainApp() {
             <AdminDashboard products={products} onProductAction={fetchProducts} />
           </ProtectedRoute>
         } />
+
+        <Route path="/orders" element={<OrderHistory />} />
 
         <Route path="/success" element={
           <Success clearCart={() => {

@@ -1,8 +1,8 @@
 package com.geetharu.ecommerce_platform.controller;
 
-// ⚠️ Make sure these match your project!
-import com.geetharu.ecommerce_platform.entity.Product; // Or .entity.Product
-import com.geetharu.ecommerce_platform.repository.ProductRepository;
+import com.geetharu.ecommerce_platform.entity.User;
+import com.geetharu.ecommerce_platform.repository.UserRepository;
+import com.geetharu.ecommerce_platform.service.OrderService;
 
 import com.stripe.Stripe;
 import com.stripe.exception.EventDataObjectDeserializationException;
@@ -16,13 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/payment")
@@ -35,13 +36,21 @@ public class PaymentController {
     private String endpointSecret;
 
     @Autowired
-    private ProductRepository productRepository;
+    private UserRepository userRepository;
+
+    // 🚀 NEW: We inject our new secure "Vault" here
+    @Autowired
+    private OrderService orderService;
 
     @PostMapping("/create-checkout-session")
     public ResponseEntity<Map<String, String>> createCheckoutSession(@RequestBody List<Map<String, Object>> cart) {
         Stripe.apiKey = stripeApiKey;
 
         try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth.getName();
+            User currentUser = userRepository.findByUsername(username).orElse(null);
+
             List<SessionCreateParams.LineItem> lineItems = new ArrayList<>();
             StringBuilder metadataCart = new StringBuilder();
 
@@ -75,15 +84,18 @@ public class PaymentController {
                 );
             }
 
-            SessionCreateParams params = SessionCreateParams.builder()
+            SessionCreateParams.Builder paramsBuilder = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.PAYMENT)
                     .setSuccessUrl("http://localhost:5173/success")
                     .setCancelUrl("http://localhost:5173/cart")
                     .addAllLineItem(lineItems)
-                    .putMetadata("cart_details", metadataCart.toString())
-                    .build();
+                    .putMetadata("cart_details", metadataCart.toString());
 
-            Session session = Session.create(params);
+            if (currentUser != null) {
+                paramsBuilder.putMetadata("user_id", String.valueOf(currentUser.getId()));
+            }
+
+            Session session = Session.create(paramsBuilder.build());
 
             Map<String, String> responseData = new HashMap<>();
             responseData.put("url", session.getUrl());
@@ -113,7 +125,6 @@ public class PaymentController {
 
         if ("checkout.session.completed".equals(event.getType())) {
 
-            // 🚀 THE FIX: Use deserializeUnsafe() to force Java to read the newer Stripe package!
             StripeObject stripeObject = event.getDataObjectDeserializer().deserializeUnsafe();
 
             if (stripeObject != null) {
@@ -121,25 +132,19 @@ public class PaymentController {
 
                 if (session.getMetadata() != null) {
                     String cartDetails = session.getMetadata().get("cart_details");
+                    String userIdStr = session.getMetadata().get("user_id");
+                    String stripeSessionId = session.getId(); // 🚀 Grab the unique Stripe ID!
 
-                    if (cartDetails != null && !cartDetails.isEmpty()) {
-                        String[] items = cartDetails.split(",");
+                    if (userIdStr != null && cartDetails != null && !cartDetails.isEmpty()) {
+                        Long userId = Long.parseLong(userIdStr);
+                        Double totalAmount = session.getAmountTotal() / 100.0;
 
-                        for (String item : items) {
-                            if (item.isEmpty()) continue;
-
-                            String[] parts = item.split(":");
-                            Long productId = Long.parseLong(parts[0]);
-                            int quantityBought = Integer.parseInt(parts[1]);
-
-                            Optional<Product> optionalProduct = productRepository.findById(productId);
-                            if (optionalProduct.isPresent()) {
-                                Product product = optionalProduct.get();
-                                int newStock = product.getStockQuantity() - quantityBought;
-                                product.setStockQuantity(Math.max(0, newStock));
-                                productRepository.save(product);
-                                System.out.println("✅ SUCCESS: Deducted " + quantityBought + " from Product ID: " + productId);
-                            }
+                        try {
+                            // 🚀 Pass the heavy lifting to our secure, transactional Service!
+                            orderService.processStripePayment(userId, stripeSessionId, totalAmount, cartDetails);
+                        } catch (Exception e) {
+                            System.err.println("❌ Critical Database Error during checkout: " + e.getMessage());
+                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Database Error");
                         }
                     }
                 }
