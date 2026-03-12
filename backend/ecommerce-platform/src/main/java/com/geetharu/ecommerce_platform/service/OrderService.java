@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID; // 🚀 NEW: Import Java's random string generator
 
 @Service
 public class OrderService {
@@ -23,12 +24,9 @@ public class OrderService {
     @Autowired
     private UserRepository userRepository;
 
-    // 🚀 THE MAGIC SHIELD: If ANY line of code in this method fails,
-    // Spring Boot instantly UNDOES all database changes. No lost inventory!
     @Transactional
     public void processStripePayment(Long userId, String stripeSessionId, Double totalAmount, String cartDetails) {
 
-        // 1. Anti-Duplicate Check
         if (orderRepository.existsByStripeSessionId(stripeSessionId)) {
             System.out.println("⚠️ Duplicate Webhook Ignored for Session: " + stripeSessionId);
             return;
@@ -37,15 +35,17 @@ public class OrderService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2. Create the master receipt
         Order order = new Order();
         order.setUser(user);
         order.setOrderDate(LocalDateTime.now());
         order.setStatus("PAID");
         order.setTotalAmount(totalAmount);
-        order.setStripeSessionId(stripeSessionId); // 🔒 Save the ID to prevent duplicates
+        order.setStripeSessionId(stripeSessionId);
 
-        // 3. Process items and deduct stock safely
+        // 🚀 NEW: Generate a professional 8-character ID (e.g., ORD-7F3A9B1C)
+        String generatedTrackingNumber = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        order.setOrderTrackingNumber(generatedTrackingNumber);
+
         String[] items = cartDetails.split(",");
         for (String item : items) {
             if (item.isEmpty()) continue;
@@ -59,8 +59,6 @@ public class OrderService {
 
             int newStock = product.getStockQuantity() - quantityBought;
 
-            // If someone bought the last item 1 millisecond before this user,
-            // this throws an error and triggers the @Transactional ROLLBACK!
             if (newStock < 0) {
                 throw new RuntimeException("Out of stock for product: " + product.getName());
             }
@@ -75,8 +73,7 @@ public class OrderService {
             order.addItem(orderItem);
         }
 
-        // 4. Final Save
         orderRepository.save(order);
-        System.out.println("✅ SUCCESS: Secure Order saved for User ID: " + userId);
+        System.out.println("✅ SUCCESS: Secure Order saved! Tracking Number: " + generatedTrackingNumber);
     }
 }
