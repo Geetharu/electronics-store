@@ -8,6 +8,7 @@ import ProductDetails from './ProductDetails';
 import Success from './Success'; 
 import Cart from './Cart';
 import OrderHistory from './OrderHistory';
+import UserProfile from './UserProfile';
 
 const ProtectedRoute = ({ children }) => {
   const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
@@ -20,13 +21,11 @@ function MainApp() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortOrder, setSortOrder] = useState('default');
   
-  // 🛒 CART MEMORY FIX: Load from localStorage on startup
   const [cart, setCart] = useState(() => {
     const savedCart = localStorage.getItem('cart');
     return savedCart ? JSON.parse(savedCart) : [];
   }); 
 
-  // 💾 CART MEMORY FIX: Save to localStorage whenever cart changes
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cart));
   }, [cart]);
@@ -65,7 +64,7 @@ function MainApp() {
 
   const handleLogout = () => {
     sessionStorage.clear();
-    localStorage.removeItem('cart'); // 🧹 Clear cart on logout
+    localStorage.removeItem('cart'); 
     setToken(null);
     setCart([]);
     navigate('/'); 
@@ -189,7 +188,10 @@ function MainApp() {
             </button>
           )}
           
-          {/* 🚀 ADDED THE ORDERS BUTTON HERE FOR NORMAL USERS */}
+          <button className="nav-btn" onClick={() => navigate('/profile')} style={{ marginRight: '10px' }}>
+            👤 Profile
+          </button>
+
           {!isAdmin && (
             <button className="nav-btn" onClick={() => navigate('/orders')} style={{ marginRight: '10px' }}>
               📦 My Orders
@@ -295,8 +297,16 @@ function MainApp() {
                         )}
                       </h3>
                       <p className="price-tag" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0 0 8px 0' }}>${product.price.toFixed(2)}</p>
+                      
+                      {/* 🚀 GOD MODE FIX: Admin sees everything, User sees Scarcity Marketing */}
                       <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e', fontSize: '0.85rem', marginBottom: '15px', flex: 1 }}>
-                        {product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'}
+                        {isAdmin ? (
+                           product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'
+                        ) : (
+                           product.stockQuantity > 5 ? '● In Stock' : 
+                           product.stockQuantity > 0 ? `● Only ${product.stockQuantity} left in stock - order soon!` : 
+                           '○ Out of Stock'
+                        )}
                       </p>
                       
                       {!isAdmin && (
@@ -341,6 +351,8 @@ function MainApp() {
             <AdminDashboard products={products} onProductAction={fetchProducts} />
           </ProtectedRoute>
         } />
+
+        <Route path="/profile" element={<UserProfile />} />
 
         <Route path="/orders" element={<OrderHistory />} />
 
@@ -404,7 +416,6 @@ function MainApp() {
                 </div>
                 <div className="cart-footer">
                   <h3>Total: ${cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0).toFixed(2)}</h3>
-                  {/* 🚀 Changed to navigate to full cart page for final review instead of checking out immediately from modal */}
                   <button className="checkout-btn" onClick={() => { setIsCartOpen(false); navigate('/cart'); }}>Review Cart</button>
                 </div>
               </>
