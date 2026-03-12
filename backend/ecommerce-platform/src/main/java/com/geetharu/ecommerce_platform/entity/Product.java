@@ -25,6 +25,13 @@ public class Product {
     @Column(length = 1000)
     private String imageUrl;
 
+    // 🚀 NEW: Transient fields for High-Performance UI (Not saved in DB)
+    @Transient
+    private Double averageRating = 0.0;
+
+    @Transient
+    private Integer reviewCount = 0;
+
     public Product() {
     }
 
@@ -52,4 +59,11 @@ public class Product {
 
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    // 🚀 NEW: Getters and Setters for the Review Stats
+    public Double getAverageRating() { return averageRating; }
+    public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
+
+    public Integer getReviewCount() { return reviewCount; }
+    public void setReviewCount(Integer reviewCount) { this.reviewCount = reviewCount; }
 }

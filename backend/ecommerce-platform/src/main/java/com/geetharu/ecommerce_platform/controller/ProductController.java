@@ -24,6 +24,20 @@ public class ProductController {
         return productService.getAllProducts();
     }
 
+    // 🚀 ADDED: The missing endpoint to get a single product for the details page!
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getProductById(@PathVariable Long id) {
+        try {
+            Product product = productService.getProductById(id);
+            if (product != null) {
+                return ResponseEntity.ok(product);
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+        }
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createProduct(@RequestBody Product product) {

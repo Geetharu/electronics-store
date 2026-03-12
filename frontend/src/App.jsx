@@ -266,6 +266,8 @@ function MainApp() {
               <div className="product-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
                 {sortedAndFilteredProducts.map((product) => {
                   const badge = getBadge(product.stockQuantity); 
+                  const avgRating = product.averageRating || 0;
+                  const reviewCount = product.reviewCount || 0;
 
                   return (
                     <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
@@ -288,7 +290,7 @@ function MainApp() {
                       </div>
 
                       <span className="category-tag" style={{ alignSelf: 'flex-start', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#4a5568', marginBottom: '8px', fontWeight: '500' }}>{product.category}</span>
-                      <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748' }}>
+                      <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
                         {product.name}
                         {product.isHidden && (
                           <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 4px', borderRadius: '3px', fontSize: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
@@ -296,9 +298,19 @@ function MainApp() {
                           </span>
                         )}
                       </h3>
+
+                      {/* 🌟 NEW: Homepage Star Ratings Display */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
+                        <span style={{ color: '#ecc94b', fontSize: '1rem' }}>
+                          {avgRating > 0 ? '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating)) : '☆☆☆☆☆'}
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#718096' }}>
+                          {reviewCount > 0 ? `(${reviewCount})` : '(0)'}
+                        </span>
+                      </div>
+
                       <p className="price-tag" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0 0 8px 0' }}>${product.price.toFixed(2)}</p>
                       
-                      {/* 🚀 GOD MODE FIX: Admin sees everything, User sees Scarcity Marketing */}
                       <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e', fontSize: '0.85rem', marginBottom: '15px', flex: 1 }}>
                         {isAdmin ? (
                            product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'

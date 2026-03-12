@@ -52,9 +52,13 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/products/**").permitAll()
+
+                        // 🚀 FIX: Let EVERYONE (logged in or out) read the product reviews
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/reviews/product/**").permitAll()
+
                         .requestMatchers("/error").permitAll()
 
-                        // 🚀 NEW: Let Stripe access the Webhook URL without logging in
+                        // Let Stripe access the Webhook URL without logging in
                         .requestMatchers("/api/payment/webhook").permitAll()
 
                         // 💳 EXPLICITLY REQUIRE AUTH FOR OTHER PAYMENTS
