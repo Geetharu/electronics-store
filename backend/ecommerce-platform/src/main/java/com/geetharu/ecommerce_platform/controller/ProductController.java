@@ -3,10 +3,16 @@ package com.geetharu.ecommerce_platform.controller;
 import com.geetharu.ecommerce_platform.dto.CartItemDTO;
 import com.geetharu.ecommerce_platform.entity.Product;
 import com.geetharu.ecommerce_platform.service.ProductService;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -19,12 +25,42 @@ public class ProductController {
         this.productService = productService;
     }
 
+    // Used by Admin Dashboard to see everything at once
     @GetMapping
     public List<Product> getAllProducts() {
         return productService.getAllProducts();
     }
 
-    // 🚀 ADDED: The missing endpoint to get a single product for the details page!
+    // 🚀 NEW: Used by the Storefront to load products in chunks!
+    @GetMapping("/paged")
+    public ResponseEntity<Map<String, Object>> getPaginatedProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size,
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "All") String category,
+            @RequestParam(defaultValue = "default") String sort
+    ) {
+        try {
+            // Check if the user is an Admin (to reveal hidden products)
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+            Page<Product> productPage = productService.getPaginatedProducts(page, size, search, category, sort, isAdmin);
+
+            // Package it nicely for React!
+            Map<String, Object> response = new HashMap<>();
+            response.put("products", productPage.getContent());
+            response.put("currentPage", productPage.getNumber());
+            response.put("totalItems", productPage.getTotalElements());
+            response.put("totalPages", productPage.getTotalPages());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(null);
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> getProductById(@PathVariable Long id) {
         try {
@@ -64,8 +100,6 @@ public class ProductController {
             existingProduct.setStockQuantity(productDetails.getStockQuantity());
             existingProduct.setSku(productDetails.getSku());
             existingProduct.setHidden(productDetails.isHidden());
-
-            // 🖼️ NEW: Save the image URL during an update!
             existingProduct.setImageUrl(productDetails.getImageUrl());
 
             Product updatedProduct = productService.updateProduct(id, existingProduct);

@@ -1,5 +1,8 @@
 package com.geetharu.ecommerce_platform.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -14,28 +17,44 @@ import org.springframework.stereotype.Service;
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final ReviewRepository reviewRepository; // 🚀 NEW: Brought in the reviews!
+    private final ReviewRepository reviewRepository;
 
     public ProductService(ProductRepository productRepository, ReviewRepository reviewRepository) {
         this.productRepository = productRepository;
         this.reviewRepository = reviewRepository;
     }
 
-    // 🧠 HELPER: Calculates the stars on the fly!
     private void attachReviewStats(Product product) {
         List<Review> reviews = reviewRepository.findByProductIdOrderByCreatedAtDesc(product.getId());
         product.setReviewCount(reviews.size());
         if (!reviews.isEmpty()) {
             double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
-            product.setAverageRating(Math.round(avg * 10.0) / 10.0); // Rounds to 1 decimal (e.g., 4.5)
+            product.setAverageRating(Math.round(avg * 10.0) / 10.0);
         } else {
             product.setAverageRating(0.0);
         }
     }
 
+    // 🚀 NEW: The Paginated Fetcher
+    public Page<Product> getPaginatedProducts(int page, int size, String search, String category, String sortOrder, boolean includeHidden) {
+        Sort sort = Sort.by(Sort.Direction.ASC, "id"); // Default
+
+        if ("price-asc".equals(sortOrder)) sort = Sort.by(Sort.Direction.ASC, "price");
+        if ("price-desc".equals(sortOrder)) sort = Sort.by(Sort.Direction.DESC, "price");
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<Product> productPage = productRepository.searchAndFilterProducts(search, category, includeHidden, pageable);
+
+        // Only calculate stars for the 8 items currently on the screen! (Massive performance boost)
+        productPage.getContent().forEach(this::attachReviewStats);
+
+        return productPage;
+    }
+
+    // Keeps the Admin Dashboard working normally
     public List<Product> getAllProducts() {
         List<Product> products = productRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
-        products.forEach(this::attachReviewStats); // 🚀 Attach stats to every product
+        products.forEach(this::attachReviewStats);
         return products;
     }
 
@@ -45,7 +64,7 @@ public class ProductService {
 
     public Product getProductById(Long id) {
         Product product = productRepository.findById(id).orElse(null);
-        if (product != null) attachReviewStats(product); // 🚀 Attach stats
+        if (product != null) attachReviewStats(product);
         return product;
     }
 
@@ -56,6 +75,8 @@ public class ProductService {
             existingProduct.setPrice(updatedProduct.getPrice());
             existingProduct.setStockQuantity(updatedProduct.getStockQuantity());
             existingProduct.setCategory(updatedProduct.getCategory());
+            existingProduct.setHidden(updatedProduct.isHidden());
+            existingProduct.setImageUrl(updatedProduct.getImageUrl());
             return productRepository.save(existingProduct);
         }).orElse(null);
     }
@@ -81,7 +102,7 @@ public class ProductService {
 
     public List<Product> getProductsByCategory(String category) {
         List<Product> products = productRepository.findByCategory(category);
-        products.forEach(this::attachReviewStats); // 🚀 Attach stats
+        products.forEach(this::attachReviewStats);
         return products;
     }
 }

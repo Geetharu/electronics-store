@@ -16,7 +16,14 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function MainApp() {
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]); // For Admin & Categories
+  const [storeProducts, setStoreProducts] = useState([]); // 🚀 NEW: Just for the paginated grid!
+  
+  // 🚀 NEW: Pagination States
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortOrder, setSortOrder] = useState('default');
@@ -37,22 +44,56 @@ function MainApp() {
 
   const navigate = useNavigate(); 
   const location = useLocation(); 
+  const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
 
-  const fetchProducts = async () => {
+  // Used to populate Categories and Admin Dashboard
+  const fetchAllProducts = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       const data = await response.json();
-      setProducts(data);
+      setAllProducts(data);
     } catch (error) {
       console.error("Backend connection error:", error);
     }
   };
 
+  // 🚀 NEW: Used to load chunks of data for the storefront
+  const fetchStorefrontProducts = async () => {
+    try {
+      const url = new URL(`${import.meta.env.VITE_API_URL}/api/products/paged`);
+      url.searchParams.append('page', currentPage);
+      url.searchParams.append('size', 8); // Showing 8 items per page!
+      url.searchParams.append('search', searchQuery);
+      url.searchParams.append('category', selectedCategory);
+      url.searchParams.append('sort', sortOrder);
+
+      const response = await fetch(url.toString(), {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await response.json();
+      
+      setStoreProducts(data.products);
+      setTotalPages(data.totalPages);
+      setTotalItems(data.totalItems);
+    } catch (error) {
+      console.error("Failed to fetch paginated products:", error);
+    }
+  };
+
+  // Whenever the user changes a filter or page, grab the new data!
   useEffect(() => {
-    if (token) fetchProducts();
-  }, [token]);
+    if (token) {
+      fetchAllProducts();
+      fetchStorefrontProducts();
+    }
+  }, [token, currentPage, searchQuery, selectedCategory, sortOrder]);
+
+  // Handlers to reset to page 1 if a user searches or changes category
+  const handleSearch = (val) => { setSearchQuery(val); setCurrentPage(0); };
+  const handleCategory = (val) => { setSelectedCategory(val); setCurrentPage(0); };
+  const handleSort = (val) => { setSortOrder(val); setCurrentPage(0); };
 
   const handleLoginSuccess = (data) => {
     sessionStorage.setItem('token', data.token);
@@ -129,24 +170,8 @@ function MainApp() {
     }
   };
 
-  const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
-  const uniqueCategories = ['All', ...new Set(products.map(p => p.category))];
-
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          product.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    const isVisible = isAdmin ? true : !product.isHidden;
-    
-    return matchesSearch && matchesCategory && isVisible;
-  });
-
-  const sortedAndFilteredProducts = [...filteredProducts].sort((a, b) => {
-    if (sortOrder === 'price-asc') return a.price - b.price;
-    if (sortOrder === 'price-desc') return b.price - a.price;
-    return 0; 
-  });
+  const uniqueCategories = ['All', ...new Set(allProducts.map(p => p.category))];
 
   const getBadge = (stock) => {
     if (stock === 0) return { text: 'Sold Out ❌', bg: '#e53e3e' };
@@ -219,7 +244,7 @@ function MainApp() {
                   {uniqueCategories.map(category => (
                     <li key={category} style={{ marginBottom: '0.25rem' }}>
                       <button
-                        onClick={() => setSelectedCategory(category)}
+                        onClick={() => handleCategory(category)}
                         style={{
                           width: '100%',
                           textAlign: 'left',
@@ -243,18 +268,18 @@ function MainApp() {
             </aside>
 
             <main style={{ flex: 1 }}>
-              <div className="search-sort-container" style={{ display: 'flex', gap: '15px', marginBottom: '1.5rem' }}>
+              <div className="search-sort-container" style={{ display: 'flex', gap: '15px', marginBottom: '1.5rem', alignItems: 'center' }}>
                 <input 
                   type="text" 
                   placeholder="Search products..." 
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearch(e.target.value)}
                   className="search-bar"
                   style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '0.95rem' }}
                 />
                 <select 
                   value={sortOrder} 
-                  onChange={(e) => setSortOrder(e.target.value)}
+                  onChange={(e) => handleSort(e.target.value)}
                   style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '0.95rem', cursor: 'pointer', backgroundColor: 'white' }}
                 >
                   <option value="default">Sort by: Default</option>
@@ -262,9 +287,14 @@ function MainApp() {
                   <option value="price-desc">Price: High to Low</option>
                 </select>
               </div>
+
+              {/* 🚀 Shows how many items found in total */}
+              <p style={{ color: '#718096', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                Showing {storeProducts.length} of {totalItems} results
+              </p>
               
               <div className="product-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-                {sortedAndFilteredProducts.map((product) => {
+                {storeProducts.map((product) => {
                   const badge = getBadge(product.stockQuantity); 
                   const avgRating = product.averageRating || 0;
                   const reviewCount = product.reviewCount || 0;
@@ -299,7 +329,6 @@ function MainApp() {
                         )}
                       </h3>
 
-                      {/* 🌟 NEW: Homepage Star Ratings Display */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
                         <span style={{ color: '#ecc94b', fontSize: '1rem' }}>
                           {avgRating > 0 ? '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating)) : '☆☆☆☆☆'}
@@ -334,13 +363,33 @@ function MainApp() {
                     </div>
                   );
                 })}
-                
-                {sortedAndFilteredProducts.length === 0 && (
-                  <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem', gridColumn: '1 / -1' }}>
-                    No products match your criteria.
-                  </p>
-                )}
               </div>
+              
+              {/* 🚀 NEW: Pagination Controls */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '2rem' }}>
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))} 
+                    disabled={currentPage === 0}
+                    style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e0', backgroundColor: currentPage === 0 ? '#edf2f7' : 'white', cursor: currentPage === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', color: '#4a5568' }}
+                  >
+                    ← Previous
+                  </button>
+                  
+                  <span style={{ fontWeight: 'bold', color: '#4a5568' }}>
+                    Page {currentPage + 1} of {totalPages}
+                  </span>
+                  
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))} 
+                    disabled={currentPage >= totalPages - 1}
+                    style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e0', backgroundColor: currentPage >= totalPages - 1 ? '#edf2f7' : 'white', cursor: currentPage >= totalPages - 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold', color: '#4a5568' }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+
             </main>
           </div>
         } />
@@ -360,7 +409,7 @@ function MainApp() {
 
         <Route path="/admin" element={
           <ProtectedRoute>
-            <AdminDashboard products={products} onProductAction={fetchProducts} />
+            <AdminDashboard products={allProducts} onProductAction={() => { fetchAllProducts(); fetchStorefrontProducts(); }} />
           </ProtectedRoute>
         } />
 
