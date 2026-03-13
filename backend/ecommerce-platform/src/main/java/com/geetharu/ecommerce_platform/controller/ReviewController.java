@@ -10,7 +10,9 @@ import com.geetharu.ecommerce_platform.repository.ProductRepository;
 import com.geetharu.ecommerce_platform.repository.ReviewRepository;
 import com.geetharu.ecommerce_platform.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -98,6 +100,41 @@ public class ReviewController {
 
         reviewRepository.save(review);
         return ResponseEntity.ok("Review posted successfully!");
+    }
+
+    // ==========================================
+    // 👑 ADMIN ONLY: Moderation Features
+    // ==========================================
+
+    // 1. Fetch ALL reviews across the whole store
+    @GetMapping("/all")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getAllReviews() {
+        List<Review> reviews = reviewRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        List<Map<String, Object>> adminReviews = reviews.stream().map(review -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", review.getId());
+            map.put("rating", review.getRating());
+            map.put("comment", review.getComment());
+            map.put("createdAt", review.getCreatedAt());
+            map.put("username", review.getUser().getUsername());
+            map.put("productName", review.getProduct().getName());
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(adminReviews);
+    }
+
+    // 2. Delete a review permanently
+    @DeleteMapping("/{reviewId}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deleteReview(@PathVariable Long reviewId) {
+        if (reviewRepository.existsById(reviewId)) {
+            reviewRepository.deleteById(reviewId);
+            return ResponseEntity.ok("Review deleted successfully.");
+        }
+        return ResponseEntity.status(404).body("Review not found.");
     }
 
     // ==========================================

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 export default function AdminDashboard({ products, onProductAction }) {
   const [activeTab, setActiveTab] = useState('products');
   const [orders, setOrders] = useState([]);
+  const [allReviews, setAllReviews] = useState([]); // 🚀 NEW: Store Reviews
   
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [shippingInputs, setShippingInputs] = useState({ carrier: '', trackingNumber: '' });
@@ -25,17 +26,30 @@ export default function AdminDashboard({ products, onProductAction }) {
       if (response.ok) {
         const data = await response.json();
         setOrders(data);
-        // 🚀 FIX: Removed the buggy auto-reopen logic here
       }
     } catch (error) {
       console.error("Failed to fetch orders:", error);
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'orders') {
-      fetchOrders();
+  // 🚀 NEW: Fetch all reviews for Moderation
+  const fetchReviews = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/all`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAllReviews(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch reviews:", error);
     }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'orders') fetchOrders();
+    if (activeTab === 'reviews') fetchReviews(); // 🚀 Triggers when tab changes
   }, [activeTab]);
 
   const openOrderModal = (order) => {
@@ -61,7 +75,6 @@ export default function AdminDashboard({ products, onProductAction }) {
         })
       });
       if (response.ok) {
-        // 🚀 FIX: Close the modal immediately first, THEN quietly refresh the table
         setSelectedOrder(null); 
         fetchOrders();
       } else {
@@ -145,6 +158,25 @@ export default function AdminDashboard({ products, onProductAction }) {
     }
   };
 
+  // 🚀 NEW: Delete a review from the database
+  const handleDeleteReview = async (id) => {
+    if (!window.confirm("🚨 MODERATION ACTION: Are you sure you want to permanently delete this review?")) return;
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        fetchReviews(); // Refresh the table automatically
+      } else {
+        alert("Failed to delete review.");
+      }
+    } catch (error) {
+      console.error("Failed to delete review:", error);
+    }
+  };
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -173,6 +205,14 @@ export default function AdminDashboard({ products, onProductAction }) {
             style={{ padding: '10px 20px', backgroundColor: activeTab === 'orders' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'orders' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
           >
             🚚 Order Fulfillments
+          </button>
+          
+          {/* 🚀 NEW: Reviews Moderation Tab */}
+          <button 
+            onClick={() => setActiveTab('reviews')}
+            style={{ padding: '10px 20px', backgroundColor: activeTab === 'reviews' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'reviews' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            ⭐ Reviews Moderation
           </button>
         </div>
       </div>
@@ -326,6 +366,59 @@ export default function AdminDashboard({ products, onProductAction }) {
         </div>
       )}
 
+      {/* 🚀 NEW: The Reviews Moderation Tab Content */}
+      {activeTab === 'reviews' && (
+        <div>
+          <table className="admin-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', backgroundColor: 'white' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f7fafc', borderBottom: '2px solid #e2e8f0' }}>
+                <th style={{ padding: '12px' }}>Date</th>
+                <th>Customer</th>
+                <th>Product</th>
+                <th>Rating</th>
+                <th>Comment</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allReviews.map(review => (
+                <tr key={review.id} style={{ borderBottom: '1px solid #edf2f7' }}>
+                  <td style={{ padding: '12px', color: '#718096', fontSize: '0.9rem' }}>
+                    {new Date(review.createdAt).toLocaleDateString()}
+                  </td>
+                  <td style={{ fontWeight: 'bold', color: '#2d3748' }}>{review.username}</td>
+                  <td style={{ color: '#2b6cb0', fontWeight: 'bold' }}>{review.productName}</td>
+                  <td>
+                    <span style={{ color: '#ecc94b', fontSize: '1.2rem' }}>
+                      {'★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)}
+                    </span>
+                  </td>
+                  <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {review.comment}
+                  </td>
+                  <td>
+                    <button 
+                      onClick={() => handleDeleteReview(review.id)}
+                      style={{ backgroundColor: '#e53e3e', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {allReviews.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#718096' }}>
+                    No reviews found across the store.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Existing Order Modal */}
       {selectedOrder && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#f7fafc', width: '90%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
