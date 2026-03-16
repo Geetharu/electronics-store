@@ -15,11 +15,25 @@ const ProtectedRoute = ({ children }) => {
   return isAdmin ? children : <Navigate to="/" replace />;
 };
 
+// 🚀 NEW: The Premium Skeleton Loader Component
+const SkeletonCard = () => (
+  <div className="product-card skeleton-card">
+    <div className="skeleton-img"></div>
+    <div className="skeleton-tag"></div>
+    <div className="skeleton-title"></div>
+    <div className="skeleton-stars"></div>
+    <div className="skeleton-price"></div>
+    <div className="skeleton-btn"></div>
+  </div>
+);
+
 function MainApp() {
-  const [allProducts, setAllProducts] = useState([]); // For Admin & Categories
-  const [storeProducts, setStoreProducts] = useState([]); // 🚀 NEW: Just for the paginated grid!
+  const [allProducts, setAllProducts] = useState([]); 
+  const [storeProducts, setStoreProducts] = useState([]); 
   
-  // 🚀 NEW: Pagination States
+  // 🚀 NEW: Loading state for the Skeletons!
+  const [isLoading, setIsLoading] = useState(true);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalItems, setTotalItems] = useState(0);
@@ -46,7 +60,6 @@ function MainApp() {
   const location = useLocation(); 
   const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
 
-  // Used to populate Categories and Admin Dashboard
   const fetchAllProducts = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products`, {
@@ -59,12 +72,12 @@ function MainApp() {
     }
   };
 
-  // 🚀 NEW: Used to load chunks of data for the storefront
   const fetchStorefrontProducts = async () => {
+    setIsLoading(true); // 🚀 Trigger Skeletons ON
     try {
       const url = new URL(`${import.meta.env.VITE_API_URL}/api/products/paged`);
       url.searchParams.append('page', currentPage);
-      url.searchParams.append('size', 8); // Showing 8 items per page!
+      url.searchParams.append('size', 8); 
       url.searchParams.append('search', searchQuery);
       url.searchParams.append('category', selectedCategory);
       url.searchParams.append('sort', sortOrder);
@@ -79,10 +92,11 @@ function MainApp() {
       setTotalItems(data.totalItems);
     } catch (error) {
       console.error("Failed to fetch paginated products:", error);
+    } finally {
+      setIsLoading(false); // 🚀 Trigger Skeletons OFF
     }
   };
 
-  // Whenever the user changes a filter or page, grab the new data!
   useEffect(() => {
     if (token) {
       fetchAllProducts();
@@ -90,7 +104,6 @@ function MainApp() {
     }
   }, [token, currentPage, searchQuery, selectedCategory, sortOrder]);
 
-  // Handlers to reset to page 1 if a user searches or changes category
   const handleSearch = (val) => { setSearchQuery(val); setCurrentPage(0); };
   const handleCategory = (val) => { setSelectedCategory(val); setCurrentPage(0); };
   const handleSort = (val) => { setSortOrder(val); setCurrentPage(0); };
@@ -288,85 +301,98 @@ function MainApp() {
                 </select>
               </div>
 
-              {/* 🚀 Shows how many items found in total */}
-              <p style={{ color: '#718096', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                Showing {storeProducts.length} of {totalItems} results
-              </p>
+              {!isLoading && (
+                <p style={{ color: '#718096', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                  Showing {storeProducts.length} of {totalItems} results
+                </p>
+              )}
               
               <div className="product-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-                {storeProducts.map((product) => {
-                  const badge = getBadge(product.stockQuantity); 
-                  const avgRating = product.averageRating || 0;
-                  const reviewCount = product.reviewCount || 0;
+                
+                {/* 🚀 THE MAGIC: Render Skeletons if loading, else render real products! */}
+                {isLoading ? (
+                  Array.from({ length: 8 }).map((_, index) => <SkeletonCard key={index} />)
+                ) : (
+                  storeProducts.map((product) => {
+                    const badge = getBadge(product.stockQuantity); 
+                    const avgRating = product.averageRating || 0;
+                    const reviewCount = product.reviewCount || 0;
 
-                  return (
-                    <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
-                      
-                      <div 
-                        onClick={() => navigate(`/product/${product.id}`)}
-                        style={{ position: 'relative', width: '100%', height: '180px', backgroundColor: '#f7fafc', marginBottom: '10px', borderRadius: '6px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
-                      >
-                        {badge && (
-                          <span style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: badge.bg, color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                            {badge.text}
-                          </span>
-                        )}
-
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <span style={{ color: '#a0aec0', fontSize: '0.8rem' }}>No Image</span>
-                        )}
-                      </div>
-
-                      <span className="category-tag" style={{ alignSelf: 'flex-start', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#4a5568', marginBottom: '8px', fontWeight: '500' }}>{product.category}</span>
-                      <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
-                        {product.name}
-                        {product.isHidden && (
-                          <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 4px', borderRadius: '3px', fontSize: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
-                            Hidden
-                          </span>
-                        )}
-                      </h3>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
-                        <span style={{ color: '#ecc94b', fontSize: '1rem' }}>
-                          {avgRating > 0 ? '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating)) : '☆☆☆☆☆'}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#718096' }}>
-                          {reviewCount > 0 ? `(${reviewCount})` : '(0)'}
-                        </span>
-                      </div>
-
-                      <p className="price-tag" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0 0 8px 0' }}>${product.price.toFixed(2)}</p>
-                      
-                      <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e', fontSize: '0.85rem', marginBottom: '15px', flex: 1 }}>
-                        {isAdmin ? (
-                           product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'
-                        ) : (
-                           product.stockQuantity > 5 ? '● In Stock' : 
-                           product.stockQuantity > 0 ? `● Only ${product.stockQuantity} left in stock - order soon!` : 
-                           '○ Out of Stock'
-                        )}
-                      </p>
-                      
-                      {!isAdmin && (
-                        <button 
-                          className="add-to-cart-btn"
-                          onClick={() => addToCart(product)}
-                          disabled={product.stockQuantity === 0}
-                          style={{ width: '100%', padding: '10px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.95rem', transition: 'background-color 0.2s' }}
+                    return (
+                      <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
+                        
+                        <div 
+                          onClick={() => navigate(`/product/${product.id}`)}
+                          style={{ position: 'relative', width: '100%', height: '180px', backgroundColor: '#f7fafc', marginBottom: '10px', borderRadius: '6px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
                         >
-                          {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart 🛒'}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                          {badge && (
+                            <span style={{ position: 'absolute', top: '8px', right: '8px', backgroundColor: badge.bg, color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                              {badge.text}
+                            </span>
+                          )}
+
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          ) : (
+                            <span style={{ color: '#a0aec0', fontSize: '0.8rem' }}>No Image</span>
+                          )}
+                        </div>
+
+                        <span className="category-tag" style={{ alignSelf: 'flex-start', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#4a5568', marginBottom: '8px', fontWeight: '500' }}>{product.category}</span>
+                        <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
+                          {product.name}
+                          {product.isHidden && (
+                            <span style={{ backgroundColor: '#e53e3e', color: 'white', padding: '2px 4px', borderRadius: '3px', fontSize: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
+                              Hidden
+                            </span>
+                          )}
+                        </h3>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
+                          <span style={{ color: '#ecc94b', fontSize: '1rem' }}>
+                            {avgRating > 0 ? '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating)) : '☆☆☆☆☆'}
+                          </span>
+                          <span style={{ fontSize: '0.8rem', color: '#718096' }}>
+                            {reviewCount > 0 ? `(${reviewCount})` : '(0)'}
+                          </span>
+                        </div>
+
+                        <p className="price-tag" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0 0 8px 0' }}>${product.price.toFixed(2)}</p>
+                        
+                        <p className="stock-info" style={{ color: product.stockQuantity > 0 ? '#38a169' : '#e53e3e', fontSize: '0.85rem', marginBottom: '15px', flex: 1 }}>
+                          {isAdmin ? (
+                             product.stockQuantity > 0 ? `● In Stock (${product.stockQuantity})` : '○ Out of Stock'
+                          ) : (
+                             product.stockQuantity > 5 ? '● In Stock' : 
+                             product.stockQuantity > 0 ? `● Only ${product.stockQuantity} left in stock - order soon!` : 
+                             '○ Out of Stock'
+                          )}
+                        </p>
+                        
+                        {!isAdmin && (
+                          <button 
+                            className="add-to-cart-btn"
+                            onClick={() => addToCart(product)}
+                            disabled={product.stockQuantity === 0}
+                            style={{ width: '100%', padding: '10px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.95rem', transition: 'background-color 0.2s' }}
+                          >
+                            {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart 🛒'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
               
-              {/* 🚀 NEW: Pagination Controls */}
-              {totalPages > 1 && (
+              {!isLoading && storeProducts.length === 0 && (
+                <p style={{ textAlign: 'center', color: '#718096', marginTop: '2rem' }}>
+                  No products match your criteria.
+                </p>
+              )}
+
+              {/* Pagination Controls */}
+              {!isLoading && totalPages > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '2rem' }}>
                   <button 
                     onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))} 

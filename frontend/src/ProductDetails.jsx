@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-// 🌟 Reusable Star Rating Component
 const StarRating = ({ rating, setRating, interactive = false }) => {
   return (
     <div style={{ display: 'flex', gap: '4px' }}>
@@ -29,6 +28,12 @@ export default function ProductDetails({ addToCart }) {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   
+  // 🚀 UPGRADED: Track the index instead of the URL so we can use Next/Prev arrows
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // 🚀 NEW: State for the Amazon-style Hover Zoom
+  const [zoomStyle, setZoomStyle] = useState({ transformOrigin: 'center center', transform: 'scale(1)' });
+
   const [reviews, setReviews] = useState([]);
   const [canReview, setCanReview] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
@@ -40,26 +45,20 @@ export default function ProductDetails({ addToCart }) {
   useEffect(() => {
     const fetchProductAndReviews = async () => {
       try {
-        // 🚀 FIX: Smart headers. Only attach the Authorization header if they are actually logged in!
         const headers = {};
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        // 1. Fetch Product
         const prodRes = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, { headers });
         if (prodRes.ok) {
-          setProduct(await prodRes.json());
+          const productData = await prodRes.json();
+          setProduct(productData);
+          setCurrentImageIndex(0); 
         }
 
-        // 2. Fetch Reviews
         const revRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/product/${id}`, { headers });
-        if (revRes.ok) {
-          setReviews(await revRes.json());
-        }
+        if (revRes.ok) setReviews(await revRes.json());
 
-        // 3. Ask the Bouncer: Can I review this?
-        if (token && !isAdmin) { // Admins don't need to leave reviews
+        if (token && !isAdmin) { 
           const authRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/product/${id}/can-review`, { headers });
           if (authRes.ok) setCanReview(await authRes.json());
         }
@@ -82,10 +81,7 @@ export default function ProductDetails({ addToCart }) {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/product/${id}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(newReview)
       });
 
@@ -115,6 +111,33 @@ export default function ProductDetails({ addToCart }) {
     ? (reviews.reduce((sum, rev) => sum + rev.rating, 0) / reviews.length).toFixed(1) 
     : 0;
 
+  const allImages = product.imageUrl ? [product.imageUrl, ...(product.imageGallery || [])] : [];
+
+  // 🚀 NEW: Arrow Handlers
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+  };
+
+  // 🚀 NEW: Hover Zoom Math Logic
+  const handleMouseMove = (e) => {
+    // Get the exact coordinates of the mouse inside the image box
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    
+    // Zoom in 2x, centering exactly where the mouse is pointing
+    setZoomStyle({ transformOrigin: `${x}% ${y}%`, transform: 'scale(2.2)' });
+  };
+
+  const handleMouseLeave = () => {
+    // Reset back to normal when the mouse leaves the image
+    setZoomStyle({ transformOrigin: 'center center', transform: 'scale(1)' });
+  };
+
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
       <button 
@@ -124,15 +147,75 @@ export default function ProductDetails({ addToCart }) {
         ← Back to Shop
       </button>
 
-      {/* --- 📦 PRODUCT DETAILS CARD --- */}
       <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '3rem', marginBottom: '3rem' }}>
         
-        {/* Left Side: Image */}
-        <div style={{ backgroundColor: '#f7fafc', borderRadius: '8px', padding: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
-          {product.imageUrl ? (
-            <img src={product.imageUrl} alt={product.name} style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }} />
-          ) : (
-            <span style={{ color: '#a0aec0', fontSize: '1.2rem' }}>No Image Available</span>
+        {/* Left Side: Pro Image Gallery System */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          
+          {/* Main Image Viewport */}
+          <div 
+            style={{ 
+              position: 'relative', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #edf2f7', 
+              display: 'flex', justifyContent: 'center', alignItems: 'center', 
+              height: '400px', overflow: 'hidden' // 🚀 HIDDEN OVERFLOW is required for the zoom to work!
+            }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
+            {allImages.length > 0 ? (
+              <img 
+                src={allImages[currentImageIndex]} 
+                alt={product.name} 
+                style={{ 
+                  width: '100%', height: '100%', objectFit: 'contain', 
+                  transition: 'transform 0.1s ease-out', // Smooth zoom
+                  ...zoomStyle // Apply the math coordinates!
+                }} 
+              />
+            ) : (
+              <span style={{ color: '#a0aec0', fontSize: '1.2rem' }}>No Image Available</span>
+            )}
+
+            {/* Left Arrow */}
+            {allImages.length > 1 && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); handlePrevImage(); }} 
+                style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', backgroundColor: 'rgba(255,255,255,0.8)', border: '1px solid #cbd5e0', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 10 }}
+              >
+                ◀
+              </button>
+            )}
+
+            {/* Right Arrow */}
+            {allImages.length > 1 && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleNextImage(); }} 
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', backgroundColor: 'rgba(255,255,255,0.8)', border: '1px solid #cbd5e0', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 10 }}
+              >
+                ▶
+              </button>
+            )}
+          </div>
+
+          {/* Thumbnail Row */}
+          {allImages.length > 1 && (
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
+              {allImages.map((imgUrl, index) => (
+                <div 
+                  key={index} 
+                  onMouseEnter={() => setCurrentImageIndex(index)} // 🚀 Updates on hover (Amazon style) or click
+                  style={{ 
+                    width: '70px', height: '70px', flexShrink: 0, cursor: 'pointer', 
+                    border: currentImageIndex === index ? '2px solid #3182ce' : '1px solid #e2e8f0', 
+                    borderRadius: '6px', overflow: 'hidden', padding: '5px', backgroundColor: 'white',
+                    opacity: currentImageIndex === index ? 1 : 0.6,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <img src={imgUrl} alt={`Thumbnail ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -144,7 +227,6 @@ export default function ProductDetails({ addToCart }) {
           
           <h1 style={{ margin: '0 0 10px 0', color: '#2d3748', fontSize: '2.5rem', lineHeight: '1.2' }}>{product.name}</h1>
           
-          {/* 🌟 Quick Average Rating */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
             <StarRating rating={Math.round(averageRating)} />
             <span style={{ color: '#718096', fontSize: '0.95rem', fontWeight: 'bold' }}>
@@ -185,7 +267,6 @@ export default function ProductDetails({ addToCart }) {
           Customer Reviews
         </h2>
 
-        {/* 📝 The "Write a Review" Form (ONLY shows if eligible!) */}
         {canReview && (
           <div style={{ backgroundColor: '#f0fff4', padding: '1.5rem', borderRadius: '8px', border: '1px solid #c6f6d5', marginBottom: '2rem' }}>
             <h3 style={{ margin: '0 0 10px 0', color: '#22543d', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -214,7 +295,6 @@ export default function ProductDetails({ addToCart }) {
           </div>
         )}
 
-        {/* 💬 The List of Existing Reviews */}
         {reviews.length === 0 ? (
           <div style={{ backgroundColor: '#f7fafc', padding: '2rem', textAlign: 'center', borderRadius: '8px', border: '1px dashed #cbd5e0' }}>
             <p style={{ color: '#718096', margin: 0, fontSize: '1.1rem' }}>No reviews yet.</p>

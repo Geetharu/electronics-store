@@ -25,13 +25,11 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // Used by Admin Dashboard to see everything at once
     @GetMapping
     public List<Product> getAllProducts() {
         return productService.getAllProducts();
     }
 
-    // 🚀 NEW: Used by the Storefront to load products in chunks!
     @GetMapping("/paged")
     public ResponseEntity<Map<String, Object>> getPaginatedProducts(
             @RequestParam(defaultValue = "0") int page,
@@ -41,14 +39,12 @@ public class ProductController {
             @RequestParam(defaultValue = "default") String sort
     ) {
         try {
-            // Check if the user is an Admin (to reveal hidden products)
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             boolean isAdmin = auth != null && auth.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
             Page<Product> productPage = productService.getPaginatedProducts(page, size, search, category, sort, isAdmin);
 
-            // Package it nicely for React!
             Map<String, Object> response = new HashMap<>();
             response.put("products", productPage.getContent());
             response.put("currentPage", productPage.getNumber());
@@ -100,7 +96,10 @@ public class ProductController {
             existingProduct.setStockQuantity(productDetails.getStockQuantity());
             existingProduct.setSku(productDetails.getSku());
             existingProduct.setHidden(productDetails.isHidden());
+
+            // 🚀 NEW: Update both the main image and the gallery array
             existingProduct.setImageUrl(productDetails.getImageUrl());
+            existingProduct.setImageGallery(productDetails.getImageGallery());
 
             Product updatedProduct = productService.updateProduct(id, existingProduct);
             return ResponseEntity.ok(updatedProduct);

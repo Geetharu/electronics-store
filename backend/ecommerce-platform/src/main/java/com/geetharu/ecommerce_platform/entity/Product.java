@@ -2,6 +2,8 @@ package com.geetharu.ecommerce_platform.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "products")
@@ -17,15 +19,20 @@ public class Product {
     private Integer stockQuantity;
     private String category;
 
-    // 🛠️ NEW: Forces Spring Boot to use the exact name "isHidden"
     @JsonProperty("isHidden")
     private boolean isHidden;
 
-    // Field to store the Cloudinary link
+    // Field to store the Main Cloudinary link (Thumbnail)
     @Column(length = 1000)
     private String imageUrl;
 
-    // 🚀 NEW: Transient fields for High-Performance UI (Not saved in DB)
+    // 🚀 NEW: The Image Gallery List!
+    @ElementCollection
+    @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
+    @Column(name = "image_url", length = 1000)
+    private List<String> imageGallery = new ArrayList<>();
+
+    // Transient fields for High-Performance UI (Not saved in DB)
     @Transient
     private Double averageRating = 0.0;
 
@@ -60,7 +67,10 @@ public class Product {
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
-    // 🚀 NEW: Getters and Setters for the Review Stats
+    // 🚀 NEW: Getters and Setters for the Gallery
+    public List<String> getImageGallery() { return imageGallery; }
+    public void setImageGallery(List<String> imageGallery) { this.imageGallery = imageGallery; }
+
     public Double getAverageRating() { return averageRating; }
     public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
 
