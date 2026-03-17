@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast'; // 🚀 Premium Toast
+import { ShoppingCart, CreditCard } from 'lucide-react'; // 🚀 SVG Icons for buttons
 
 const StarRating = ({ rating, setRating, interactive = false }) => {
   return (
@@ -36,11 +38,14 @@ export default function ProductDetails({ addToCart }) {
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [relatedProducts, setRelatedProducts] = useState([]);
+
   const token = sessionStorage.getItem('token');
   const isAdmin = sessionStorage.getItem('role') === 'ROLE_ADMIN';
 
   useEffect(() => {
-    const fetchProductAndReviews = async () => {
+    const fetchProductData = async () => {
+      setLoading(true);
       try {
         const headers = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -55,6 +60,9 @@ export default function ProductDetails({ addToCart }) {
         const revRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/product/${id}`, { headers });
         if (revRes.ok) setReviews(await revRes.json());
 
+        const relRes = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}/related`, { headers });
+        if (relRes.ok) setRelatedProducts(await relRes.json());
+
         if (token && !isAdmin) { 
           const authRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/product/${id}/can-review`, { headers });
           if (authRes.ok) setCanReview(await authRes.json());
@@ -63,16 +71,20 @@ export default function ProductDetails({ addToCart }) {
       } catch (error) {
         console.error("Failed to load data:", error);
       } finally {
+        window.scrollTo(0, 0); 
         setLoading(false);
       }
     };
 
-    fetchProductAndReviews();
-  }, [id, token, isAdmin]);
+    fetchProductData();
+  }, [id, token, isAdmin]); 
 
   const submitReview = async (e) => {
     e.preventDefault();
-    if (newReview.comment.trim() === '') return alert("Please write a comment.");
+    if (newReview.comment.trim() === '') {
+      toast.error("Please write a comment.", { style: { borderRadius: '8px', background: '#333', color: '#fff' }});
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -89,10 +101,13 @@ export default function ProductDetails({ addToCart }) {
         if (revRes.ok) setReviews(await revRes.json());
         
         setCanReview(false); 
-        alert("🎉 Thank you for your review!");
+        setNewReview({ rating: 5, comment: '' });
+        
+        // 🚀 Premium Toast replacing the ugly alert
+        toast.success("Thank you for your review!", { style: { borderRadius: '8px', background: '#333', color: '#fff' }});
       } else {
         const errText = await response.text();
-        alert(errText);
+        toast.error(errText, { style: { borderRadius: '8px', background: '#333', color: '#fff' }});
       }
     } catch (error) {
       console.error("Failed to submit review:", error);
@@ -119,7 +134,6 @@ export default function ProductDetails({ addToCart }) {
   };
 
   const handleMouseMove = (e) => {
-    // 🚀 NEW: Disable zoom logic on mobile phones!
     if (window.innerWidth <= 768) return; 
 
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -141,12 +155,10 @@ export default function ProductDetails({ addToCart }) {
         ← Back to Shop
       </button>
 
-      {/* 🚀 UPGRADED: Using CSS class instead of inline styles */}
       <div className="product-details-container">
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           
-          {/* 🚀 UPGRADED: Using CSS class instead of inline styles */}
           <div 
             className="product-image-viewer"
             onMouseMove={handleMouseMove}
@@ -211,7 +223,6 @@ export default function ProductDetails({ addToCart }) {
             {product.category}
           </span>
           
-          {/* 🚀 Made Title Responsive */}
           <h1 style={{ margin: '0 0 10px 0', color: '#2d3748', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', lineHeight: '1.2' }}>{product.name}</h1>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
@@ -236,19 +247,30 @@ export default function ProductDetails({ addToCart }) {
             )}
           </p>
 
+          {/* 🚀 UPGRADED: Flexbox Container with "Add to Cart" AND "Buy Now" side by side */}
           {!isAdmin && (
-            <button 
-              onClick={() => addToCart(product)}
-              disabled={product.stockQuantity === 0}
-              style={{ width: '100%', padding: '15px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 6px rgba(49, 130, 206, 0.2)' }}
-            >
-              {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart 🛒'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: 'auto' }}>
+              <button 
+                onClick={() => addToCart(null, product)}
+                disabled={product.stockQuantity === 0}
+                style={{ flex: 1, padding: '15px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+              >
+                {product.stockQuantity === 0 ? 'Out of Stock' : <><ShoppingCart size={20} /> Add to Cart</>}
+              </button>
+              
+              <button 
+                onClick={() => { addToCart(null, product); navigate('/cart'); }}
+                disabled={product.stockQuantity === 0}
+                style={{ flex: 1, padding: '15px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#38a169', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 6px rgba(56, 161, 105, 0.2)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+              >
+                <CreditCard size={20} /> Buy Now
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+      <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginBottom: '3rem' }}>
         <h2 style={{ margin: '0 0 1.5rem 0', color: '#2d3748', borderBottom: '2px solid #edf2f7', paddingBottom: '1rem' }}>
           Customer Reviews
         </h2>
@@ -306,6 +328,34 @@ export default function ProductDetails({ addToCart }) {
           </div>
         )}
       </div>
+
+      {relatedProducts.length > 0 && (
+        <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: '2rem' }}>
+          <h2 style={{ margin: '0 0 1.5rem 0', color: '#2d3748', fontSize: '1.8rem' }}>
+            You Might Also Like
+          </h2>
+          <div className="product-list" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+            {relatedProducts.map((relatedItem) => (
+              <div 
+                key={relatedItem.id} 
+                className="product-card" 
+                onClick={() => navigate(`/product/${relatedItem.id}`)}
+              >
+                <div style={{ height: '150px', backgroundColor: 'white', marginBottom: '15px', borderRadius: '8px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  {relatedItem.imageUrl ? (
+                    <img src={relatedItem.imageUrl} alt={relatedItem.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ color: '#a0aec0', fontSize: '0.8rem' }}>No Image</span>
+                  )}
+                </div>
+                <span className="category-tag" style={{ alignSelf: 'flex-start', marginBottom: '8px' }}>{relatedItem.category}</span>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', color: '#1a202c', lineHeight: '1.3' }}>{relatedItem.name}</h4>
+                <p className="price-tag" style={{ fontSize: '1.2rem', margin: 'auto 0 0 0', color: '#2b6cb0' }}>${relatedItem.price.toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
     </div>
   );

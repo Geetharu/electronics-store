@@ -1,8 +1,6 @@
 package com.geetharu.ecommerce_platform.entity;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -19,29 +17,29 @@ public class Product {
     private Integer stockQuantity;
     private String category;
 
-    @JsonProperty("isHidden")
-    private boolean isHidden;
-
-    // Field to store the Main Cloudinary link (Thumbnail)
     @Column(length = 1000)
     private String imageUrl;
 
-    // 🚀 NEW: The Image Gallery List!
     @ElementCollection
-    @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
-    @Column(name = "image_url", length = 1000)
-    private List<String> imageGallery = new ArrayList<>();
+    private List<String> imageGallery;
 
-    // Transient fields for High-Performance UI (Not saved in DB)
+    @Column(columnDefinition = "boolean default false")
+    private boolean isHidden = false;
+
+    // 🚀 THE FIX: Adding the proper Soft Delete column to the database
+    @Column(columnDefinition = "boolean default false")
+    private boolean isDeleted = false;
+
     @Transient
-    private Double averageRating = 0.0;
+    private Double averageRating;
 
     @Transient
-    private Integer reviewCount = 0;
+    private Integer reviewCount;
 
-    public Product() {
-    }
+    // Constructors
+    public Product() {}
 
+    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -60,16 +58,18 @@ public class Product {
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
 
-    @JsonProperty("isHidden")
-    public boolean isHidden() { return isHidden; }
-    public void setHidden(boolean hidden) { isHidden = hidden; }
-
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
-    // 🚀 NEW: Getters and Setters for the Gallery
     public List<String> getImageGallery() { return imageGallery; }
     public void setImageGallery(List<String> imageGallery) { this.imageGallery = imageGallery; }
+
+    public boolean isHidden() { return isHidden; }
+    public void setHidden(boolean hidden) { isHidden = hidden; }
+
+    // 🚀 THE FIX: Getters and setters for Soft Delete
+    public boolean isDeleted() { return isDeleted; }
+    public void setDeleted(boolean deleted) { isDeleted = deleted; }
 
     public Double getAverageRating() { return averageRating; }
     public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }

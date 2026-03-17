@@ -106,11 +106,13 @@ public class ReviewController {
     // 👑 ADMIN ONLY: Moderation Features
     // ==========================================
 
-    // 1. Fetch ALL reviews across the whole store
+    // 1. Fetch ALL reviews across the whole store (Ignores deleted products!)
     @GetMapping("/all")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllReviews() {
-        List<Review> reviews = reviewRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // 🚀 FIXED: Uses the new query to only fetch reviews for active products
+        List<Review> reviews = reviewRepository.findByProductIsDeletedFalseOrderByCreatedAtDesc();
 
         List<Map<String, Object>> adminReviews = reviews.stream().map(review -> {
             Map<String, Object> map = new HashMap<>();

@@ -2,6 +2,7 @@ package com.geetharu.ecommerce_platform.controller;
 
 import com.geetharu.ecommerce_platform.dto.CartItemDTO;
 import com.geetharu.ecommerce_platform.entity.Product;
+import com.geetharu.ecommerce_platform.repository.ProductRepository;
 import com.geetharu.ecommerce_platform.service.ProductService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +21,11 @@ import java.util.Map;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductRepository productRepository;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, ProductRepository productRepository) {
         this.productService = productService;
+        this.productRepository = productRepository;
     }
 
     @GetMapping
@@ -70,6 +73,25 @@ public class ProductController {
         }
     }
 
+    // 🚀 UPDATED: Calls the new Soft Delete safe query
+    @GetMapping("/{id}/related")
+    public ResponseEntity<List<Product>> getRelatedProducts(@PathVariable Long id) {
+        try {
+            Product currentProduct = productService.getProductById(id);
+            if (currentProduct == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            List<Product> related = productRepository.findTop4ByCategoryAndIdNotAndIsHiddenFalseAndIsDeletedFalse(
+                    currentProduct.getCategory(), id
+            );
+
+            return ResponseEntity.ok(related);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createProduct(@RequestBody Product product) {
@@ -96,8 +118,6 @@ public class ProductController {
             existingProduct.setStockQuantity(productDetails.getStockQuantity());
             existingProduct.setSku(productDetails.getSku());
             existingProduct.setHidden(productDetails.isHidden());
-
-            // 🚀 NEW: Update both the main image and the gallery array
             existingProduct.setImageUrl(productDetails.getImageUrl());
             existingProduct.setImageGallery(productDetails.getImageGallery());
 

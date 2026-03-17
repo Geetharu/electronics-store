@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend 
+} from 'recharts';
+import toast from 'react-hot-toast';
 
 export default function AdminDashboard({ products, onProductAction }) {
-  const [activeTab, setActiveTab] = useState('products');
+  const [activeTab, setActiveTab] = useState('analytics');
   const [orders, setOrders] = useState([]);
   const [allReviews, setAllReviews] = useState([]); 
   
@@ -48,7 +53,7 @@ export default function AdminDashboard({ products, onProductAction }) {
   };
 
   useEffect(() => {
-    if (activeTab === 'orders') fetchOrders();
+    if (activeTab === 'analytics' || activeTab === 'orders') fetchOrders();
     if (activeTab === 'reviews') fetchReviews(); 
   }, [activeTab]);
 
@@ -61,6 +66,7 @@ export default function AdminDashboard({ products, onProductAction }) {
   };
 
   const saveOrderStatus = async (newStatus) => {
+    const loadingToast = toast.loading("Updating order status...");
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${selectedOrder.id}/status`, {
         method: 'PUT',
@@ -75,38 +81,36 @@ export default function AdminDashboard({ products, onProductAction }) {
         })
       });
       if (response.ok) {
+        toast.success(`Order marked as ${newStatus}!`, { id: loadingToast });
         setSelectedOrder(null); 
         fetchOrders();
       } else {
-        alert("Failed to update order status");
+        toast.error("Failed to update order status.", { id: loadingToast });
       }
     } catch (error) {
-      console.error("Failed to connect to backend:", error);
+      toast.error("Network error.", { id: loadingToast });
     }
   };
 
   // ==========================================
-  // 📸 NEW: PRO IMAGE SORTING ENGINE
+  // 📸 PRO IMAGE SORTING ENGINE
   // ==========================================
-  
-  // 1. Combine everything into one unified array for the UI
   const currentImages = formData.imageUrl ? [formData.imageUrl, ...(formData.imageGallery || [])] : [];
 
-  // 2. Helper function: Whenever the array changes, update the official formData
   const updateImagesState = (newArray) => {
     setFormData(prev => ({
       ...prev,
-      imageUrl: newArray.length > 0 ? newArray[0] : '', // First item is ALWAYS main
-      imageGallery: newArray.length > 1 ? newArray.slice(1) : [] // The rest go to gallery
+      imageUrl: newArray.length > 0 ? newArray[0] : '', 
+      imageGallery: newArray.length > 1 ? newArray.slice(1) : [] 
     }));
   };
 
-  // 3. Upload new images and append them to the end of the array
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
     setIsUploading(true);
+    const loadingToast = toast.loading(`Uploading ${files.length} image(s)...`);
 
     try {
       const uploadPromises = files.map(async (file) => {
@@ -124,18 +128,17 @@ export default function AdminDashboard({ products, onProductAction }) {
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
-      updateImagesState([...currentImages, ...uploadedUrls]); // Append to end
+      updateImagesState([...currentImages, ...uploadedUrls]); 
+      toast.success("Images uploaded successfully!", { id: loadingToast });
       
     } catch (error) {
-      console.error("Image upload failed:", error);
-      alert("Failed to upload one or more images.");
+      toast.error("Failed to upload images.", { id: loadingToast });
     } finally {
       setIsUploading(false);
       e.target.value = null; 
     }
   };
 
-  // 4. Sorting Controls
   const removeImage = (index) => {
     const newArray = currentImages.filter((_, i) => i !== index);
     updateImagesState(newArray);
@@ -145,30 +148,32 @@ export default function AdminDashboard({ products, onProductAction }) {
     if (index === 0) return;
     const newArray = [...currentImages];
     const selectedImg = newArray.splice(index, 1)[0];
-    newArray.unshift(selectedImg); // Throw it to the absolute front
+    newArray.unshift(selectedImg); 
     updateImagesState(newArray);
   };
 
   const moveLeft = (index) => {
     if (index === 0) return;
     const newArray = [...currentImages];
-    [newArray[index - 1], newArray[index]] = [newArray[index], newArray[index - 1]]; // Swap
+    [newArray[index - 1], newArray[index]] = [newArray[index], newArray[index - 1]]; 
     updateImagesState(newArray);
   };
 
   const moveRight = (index) => {
     if (index === currentImages.length - 1) return;
     const newArray = [...currentImages];
-    [newArray[index], newArray[index + 1]] = [newArray[index + 1], newArray[index]]; // Swap
+    [newArray[index], newArray[index + 1]] = [newArray[index + 1], newArray[index]]; 
     updateImagesState(newArray);
   };
-  // ==========================================
 
+  // ==========================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     const baseUrl = `${import.meta.env.VITE_API_URL}/api/products`;
     const url = editingId ? `${baseUrl}/${editingId}` : baseUrl;
     const method = editingId ? 'PUT' : 'POST';
+
+    const loadingToast = toast.loading(editingId ? "Updating product..." : "Saving new product...");
 
     try {
       const response = await fetch(url, {
@@ -181,39 +186,53 @@ export default function AdminDashboard({ products, onProductAction }) {
       });
 
       if (response.ok) {
+        toast.success(editingId ? "Product updated!" : "Product added to store!", { id: loadingToast });
         setFormData({ name: '', sku: '', price: '', stockQuantity: '', category: '', isHidden: false, imageUrl: '', imageGallery: [] });
         setEditingId(null);
         onProductAction(); 
       } else {
         const errText = await response.text();
-        console.error("Failed to save product:", errText);
-        alert("Error saving product. Check console.");
+        toast.error(`Database Error: ${errText}`, { id: loadingToast });
       }
     } catch (error) {
-      console.error("Failed to connect to backend:", error);
+      toast.error("Failed to connect to backend.", { id: loadingToast });
     }
   };
 
   const editProduct = (product) => {
     setFormData({ ...product, imageGallery: product.imageGallery || [] });
     setEditingId(product.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
   };
 
+  // 🚀 FIXED: The button logic says Delete, but backend safely archives it.
   const deleteProduct = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    if (!window.confirm("🚨 Are you sure you want to permanently delete this product?")) return;
+    
+    const loadingToast = toast.loading("Deleting product...");
+    
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      onProductAction();
+      
+      if (response.ok) {
+        toast.success("Product deleted successfully!", { id: loadingToast });
+        onProductAction();
+      } else {
+        toast.error("Deletion failed. Check backend logs.", { id: loadingToast });
+      }
     } catch (error) {
-      console.error("Failed to delete product:", error);
+      toast.error("Network error.", { id: loadingToast });
     }
   };
 
   const handleDeleteReview = async (id) => {
     if (!window.confirm("🚨 MODERATION ACTION: Are you sure you want to permanently delete this review?")) return;
+    
+    const loadingToast = toast.loading("Deleting review...");
+    
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/${id}`, {
         method: 'DELETE',
@@ -221,12 +240,13 @@ export default function AdminDashboard({ products, onProductAction }) {
       });
       
       if (response.ok) {
+        toast.success("Review permanently deleted.", { id: loadingToast });
         fetchReviews(); 
       } else {
-        alert("Failed to delete review.");
+        toast.error("Failed to delete review.", { id: loadingToast });
       }
     } catch (error) {
-      console.error("Failed to delete review:", error);
+      toast.error("Network error.", { id: loadingToast });
     }
   };
 
@@ -242,31 +262,130 @@ export default function AdminDashboard({ products, onProductAction }) {
     return matchesSearch && matchesFilter;
   });
 
+  // ==========================================
+  // 📊 ANALYTICS CALCULATIONS
+  // ==========================================
+  const validOrders = orders.filter(o => o.status !== 'CANCELLED');
+  const totalRevenue = validOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+  const totalSales = validOrders.length;
+
+  const revenueByDateMap = {};
+  validOrders.forEach(order => {
+    const date = new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    revenueByDateMap[date] = (revenueByDateMap[date] || 0) + (order.totalAmount || 0);
+  });
+  
+  const revenueChartData = Object.keys(revenueByDateMap).map(date => ({
+    date,
+    revenue: parseFloat(revenueByDateMap[date].toFixed(2))
+  })).reverse(); 
+
+  const categoryMap = {};
+  products.forEach(p => {
+    categoryMap[p.category] = (categoryMap[p.category] || 0) + 1;
+  });
+  
+  const categoryChartData = Object.keys(categoryMap).map(cat => ({
+    name: cat,
+    value: categoryMap[cat]
+  }));
+  
+  const PIE_COLORS = ['#3182ce', '#38a169', '#dd6b20', '#e53e3e', '#805ad5', '#d53f8c'];
+
   return (
     <div className="admin-dashboard">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>⚙️ Admin Dashboard</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button 
+            onClick={() => setActiveTab('analytics')}
+            style={{ padding: '10px 20px', backgroundColor: activeTab === 'analytics' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'analytics' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
+          >
+            📊 Analytics
+          </button>
+          <button 
             onClick={() => setActiveTab('products')}
-            style={{ padding: '10px 20px', backgroundColor: activeTab === 'products' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'products' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ padding: '10px 20px', backgroundColor: activeTab === 'products' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'products' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
           >
             📦 Inventory Management
           </button>
           <button 
             onClick={() => setActiveTab('orders')}
-            style={{ padding: '10px 20px', backgroundColor: activeTab === 'orders' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'orders' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ padding: '10px 20px', backgroundColor: activeTab === 'orders' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'orders' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
           >
             🚚 Order Fulfillments
           </button>
           <button 
             onClick={() => setActiveTab('reviews')}
-            style={{ padding: '10px 20px', backgroundColor: activeTab === 'reviews' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'reviews' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ padding: '10px 20px', backgroundColor: activeTab === 'reviews' ? '#2b6cb0' : '#e2e8f0', color: activeTab === 'reviews' ? 'white' : '#4a5568', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
           >
             ⭐ Reviews Moderation
           </button>
         </div>
       </div>
+
+      {activeTab === 'analytics' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', animation: 'slideIn 0.3s ease-out' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+            <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #38a169' }}>
+              <p style={{ margin: '0 0 5px 0', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.8rem' }}>Total Revenue</p>
+              <h3 style={{ margin: 0, fontSize: '2rem', color: '#2d3748' }}>${totalRevenue.toFixed(2)}</h3>
+            </div>
+            
+            <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #3182ce' }}>
+              <p style={{ margin: '0 0 5px 0', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.8rem' }}>Total Valid Orders</p>
+              <h3 style={{ margin: 0, fontSize: '2rem', color: '#2d3748' }}>{totalSales}</h3>
+            </div>
+            
+            <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #dd6b20' }}>
+              <p style={{ margin: '0 0 5px 0', color: '#718096', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.8rem' }}>Active Products</p>
+              <h3 style={{ margin: 0, fontSize: '2rem', color: '#2d3748' }}>{products.length}</h3>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+            
+            <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+              <h3 style={{ margin: '0 0 1.5rem 0', color: '#4a5568' }}>Revenue Over Time</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={revenueChartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#718096' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#718096' }} tickFormatter={(value) => `$${value}`} />
+                  <RechartsTooltip cursor={{ fill: '#f7fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }} />
+                  <Bar dataKey="revenue" fill="#3182ce" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+              <h3 style={{ margin: '0 0 1.5rem 0', color: '#4a5568' }}>Inventory Distribution</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={categoryChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {categoryChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }} />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {activeTab === 'products' && (
         <div>
@@ -277,7 +396,6 @@ export default function AdminDashboard({ products, onProductAction }) {
             <input type="number" placeholder="Stock Quantity" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} required />
             <input type="text" placeholder="Category" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required />
             
-            {/* 🚀 UPGRADED: Real-World Sorting UI */}
             <div style={{ border: '1px dashed #ccc', padding: '15px', borderRadius: '4px', backgroundColor: '#f7fafc' }}>
               <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>Product Images:</label>
               
@@ -391,7 +509,13 @@ export default function AdminDashboard({ products, onProductAction }) {
                   <td>{product.isHidden ? '🙈 Hidden' : '👁️ Visible'}</td>
                   <td>
                     <button onClick={() => editProduct(product)} style={{ marginRight: '5px' }}>Edit</button>
-                    <button onClick={() => deleteProduct(product.id)} style={{ background: '#e53e3e', color: 'white' }}>Delete</button>
+                    {/* 🚀 FIXED: Button says Delete, matches standard UI */}
+                    <button 
+                      onClick={() => deleteProduct(product.id)} 
+                      style={{ background: '#e53e3e', color: 'white', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      🗑️ Delete
+                    </button>
                   </td>
                 </tr>
               ))}

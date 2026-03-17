@@ -14,4 +14,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // 🚀 Checks if a user has ALREADY reviewed this product (prevent spamming)
     boolean existsByUserIdAndProductId(Long userId, Long productId);
+
+    // 🚀 NEW: Grabs all reviews ONLY for products that are NOT deleted (for Admin Moderation)
+    List<Review> findByProductIsDeletedFalseOrderByCreatedAtDesc();
 }

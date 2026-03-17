@@ -35,9 +35,8 @@ public class ProductService {
         }
     }
 
-    // 🚀 NEW: The Paginated Fetcher
     public Page<Product> getPaginatedProducts(int page, int size, String search, String category, String sortOrder, boolean includeHidden) {
-        Sort sort = Sort.by(Sort.Direction.ASC, "id"); // Default
+        Sort sort = Sort.by(Sort.Direction.ASC, "id");
 
         if ("price-asc".equals(sortOrder)) sort = Sort.by(Sort.Direction.ASC, "price");
         if ("price-desc".equals(sortOrder)) sort = Sort.by(Sort.Direction.DESC, "price");
@@ -45,15 +44,13 @@ public class ProductService {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Product> productPage = productRepository.searchAndFilterProducts(search, category, includeHidden, pageable);
 
-        // Only calculate stars for the 8 items currently on the screen! (Massive performance boost)
         productPage.getContent().forEach(this::attachReviewStats);
-
         return productPage;
     }
 
-    // Keeps the Admin Dashboard working normally
+    // 🚀 UPDATED: Only return items that are NOT deleted for the Admin Dashboard!
     public List<Product> getAllProducts() {
-        List<Product> products = productRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
+        List<Product> products = productRepository.findByIsDeletedFalseOrderByIdAsc();
         products.forEach(this::attachReviewStats);
         return products;
     }
@@ -77,6 +74,7 @@ public class ProductService {
             existingProduct.setCategory(updatedProduct.getCategory());
             existingProduct.setHidden(updatedProduct.isHidden());
             existingProduct.setImageUrl(updatedProduct.getImageUrl());
+            existingProduct.setImageGallery(updatedProduct.getImageGallery());
             return productRepository.save(existingProduct);
         }).orElse(null);
     }
@@ -96,13 +94,11 @@ public class ProductService {
         }
     }
 
+    // 🚀 UPDATED: The TRUE Enterprise Soft Delete
     public void deleteProduct(Long id) {
-        productRepository.deleteById(id);
-    }
-
-    public List<Product> getProductsByCategory(String category) {
-        List<Product> products = productRepository.findByCategory(category);
-        products.forEach(this::attachReviewStats);
-        return products;
+        productRepository.findById(id).ifPresent(product -> {
+            product.setDeleted(true); // Flips the ghost switch instead of destroying the row
+            productRepository.save(product);
+        });
     }
 }
