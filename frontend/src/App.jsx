@@ -15,7 +15,6 @@ const ProtectedRoute = ({ children }) => {
   return isAdmin ? children : <Navigate to="/" replace />;
 };
 
-// 🚀 NEW: The Premium Skeleton Loader Component
 const SkeletonCard = () => (
   <div className="product-card skeleton-card">
     <div className="skeleton-img"></div>
@@ -30,9 +29,10 @@ const SkeletonCard = () => (
 function MainApp() {
   const [allProducts, setAllProducts] = useState([]); 
   const [storeProducts, setStoreProducts] = useState([]); 
-  
-  // 🚀 NEW: Loading state for the Skeletons!
   const [isLoading, setIsLoading] = useState(true);
+
+  // 🚀 NEW: Mobile Menu State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -73,7 +73,7 @@ function MainApp() {
   };
 
   const fetchStorefrontProducts = async () => {
-    setIsLoading(true); // 🚀 Trigger Skeletons ON
+    setIsLoading(true); 
     try {
       const url = new URL(`${import.meta.env.VITE_API_URL}/api/products/paged`);
       url.searchParams.append('page', currentPage);
@@ -93,7 +93,7 @@ function MainApp() {
     } catch (error) {
       console.error("Failed to fetch paginated products:", error);
     } finally {
-      setIsLoading(false); // 🚀 Trigger Skeletons OFF
+      setIsLoading(false); 
     }
   };
 
@@ -121,6 +121,7 @@ function MainApp() {
     localStorage.removeItem('cart'); 
     setToken(null);
     setCart([]);
+    setIsMobileMenuOpen(false); // Close menu on logout
     navigate('/'); 
     showToast("Logged out successfully.");
   };
@@ -183,6 +184,12 @@ function MainApp() {
     }
   };
 
+  // Helper for Mobile Menu clicks
+  const handleMobileNav = (path) => {
+    navigate(path);
+    setIsMobileMenuOpen(false);
+  };
+
   const totalCartItems = cart.reduce((total, item) => total + item.cartQuantity, 0);
   const uniqueCategories = ['All', ...new Set(allProducts.map(p => p.category))];
 
@@ -213,63 +220,87 @@ function MainApp() {
           <h1>Elite Electronics ⚡</h1>
           <p>Excellence in Every Device</p>
         </div>
+        
+        {/* 🖥️ DESKTOP Navigation (Hidden on Mobile) */}
         <div className="header-actions">
-          
           {isAdmin && location.pathname === '/' && (
-            <button className="nav-btn" onClick={() => navigate('/admin')}>
-              ⚙️ Dashboard
-            </button>
+            <button className="nav-btn" onClick={() => navigate('/admin')}>⚙️ Dashboard</button>
           )}
           {isAdmin && location.pathname === '/admin' && (
-            <button className="nav-btn" onClick={() => navigate('/')}>
-              🛒 View Shop
-            </button>
+            <button className="nav-btn" onClick={() => navigate('/')}>🛒 View Shop</button>
           )}
           
-          <button className="nav-btn" onClick={() => navigate('/profile')} style={{ marginRight: '10px' }}>
-            👤 Profile
-          </button>
+          <button className="nav-btn" onClick={() => navigate('/profile')}>👤 Profile</button>
 
           {!isAdmin && (
-            <button className="nav-btn" onClick={() => navigate('/orders')} style={{ marginRight: '10px' }}>
-              📦 My Orders
-            </button>
+            <button className="nav-btn" onClick={() => navigate('/orders')}>📦 My Orders</button>
           )}
 
           {!isAdmin && (
-            <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)} style={{ marginRight: '10px' }}>
+            <button className="nav-cart-btn" onClick={() => setIsCartOpen(true)}>
               🛒 Cart {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
             </button>
           )}
 
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
         </div>
+
+        {/* 📱 MOBILE Hamburger Button */}
+        <button 
+          className="mobile-menu-btn" 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? '✖' : '☰'}
+        </button>
+
+        {/* 📱 MOBILE Dropdown Menu */}
+        {isMobileMenuOpen && (
+          <div className="mobile-dropdown">
+            {isAdmin && location.pathname === '/' && (
+              <button className="nav-btn" onClick={() => handleMobileNav('/admin')}>⚙️ Dashboard</button>
+            )}
+            {isAdmin && location.pathname === '/admin' && (
+              <button className="nav-btn" onClick={() => handleMobileNav('/')}>🛒 View Shop</button>
+            )}
+            
+            <button className="nav-btn" onClick={() => handleMobileNav('/profile')}>👤 Profile</button>
+
+            {!isAdmin && (
+              <button className="nav-btn" onClick={() => handleMobileNav('/orders')}>📦 My Orders</button>
+            )}
+
+            {!isAdmin && (
+              <button className="nav-cart-btn" onClick={() => { setIsCartOpen(true); setIsMobileMenuOpen(false); }}>
+                🛒 Cart {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
+              </button>
+            )}
+
+            <button className="logout-btn" onClick={handleLogout}>Logout</button>
+          </div>
+        )}
       </header>
       
       <Routes>
         <Route path="/" element={
-          <div style={{ display: 'flex', gap: '2rem', padding: '2rem', width: '100%', boxSizing: 'border-box' }}>
+          /* 🚀 UPGRADED: Replaced inline styles with CSS classes for responsive stacking */
+          <div className="store-layout">
             
-            <aside style={{ width: '220px', flexShrink: 0 }}>
+            <aside className="store-sidebar">
               <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <h3 style={{ marginTop: 0, marginBottom: '1rem', borderBottom: '2px solid #edf2f7', paddingBottom: '0.5rem', fontSize: '1rem' }}>Categories</h3>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                <ul className="category-list">
                   {uniqueCategories.map(category => (
-                    <li key={category} style={{ marginBottom: '0.25rem' }}>
+                    <li key={category}>
                       <button
                         onClick={() => handleCategory(category)}
                         style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '8px 10px',
+                          width: '100%', textAlign: 'left', padding: '8px 10px',
                           backgroundColor: selectedCategory === category ? '#3182ce' : 'transparent',
                           color: selectedCategory === category ? 'white' : '#4a5568',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
+                          border: 'none', borderRadius: '4px', cursor: 'pointer',
                           fontWeight: selectedCategory === category ? 'bold' : 'normal',
-                          fontSize: '0.9rem',
-                          transition: 'background-color 0.2s'
+                          fontSize: '0.9rem', transition: 'background-color 0.2s',
+                          whiteSpace: 'nowrap' // Keeps text on one line for mobile horizontal scroll
                         }}
                       >
                         {category}
@@ -280,15 +311,14 @@ function MainApp() {
               </div>
             </aside>
 
-            <main style={{ flex: 1 }}>
-              <div className="search-sort-container" style={{ display: 'flex', gap: '15px', marginBottom: '1.5rem', alignItems: 'center' }}>
+            <main className="store-main">
+              <div className="search-sort-container">
                 <input 
                   type="text" 
                   placeholder="Search products..." 
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="search-bar"
-                  style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '0.95rem' }}
                 />
                 <select 
                   value={sortOrder} 
@@ -307,9 +337,7 @@ function MainApp() {
                 </p>
               )}
               
-              <div className="product-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-                
-                {/* 🚀 THE MAGIC: Render Skeletons if loading, else render real products! */}
+              <div className="product-list">
                 {isLoading ? (
                   Array.from({ length: 8 }).map((_, index) => <SkeletonCard key={index} />)
                 ) : (
@@ -319,7 +347,7 @@ function MainApp() {
                     const reviewCount = product.reviewCount || 0;
 
                     return (
-                      <div key={product.id} className="product-card" style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
+                      <div key={product.id} className="product-card" style={{ display: 'flex', flexDirection: 'column', transition: 'transform 0.2s' }}>
                         
                         <div 
                           onClick={() => navigate(`/product/${product.id}`)}
@@ -338,7 +366,7 @@ function MainApp() {
                           )}
                         </div>
 
-                        <span className="category-tag" style={{ alignSelf: 'flex-start', backgroundColor: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#4a5568', marginBottom: '8px', fontWeight: '500' }}>{product.category}</span>
+                        <span className="category-tag" style={{ alignSelf: 'flex-start', marginBottom: '8px' }}>{product.category}</span>
                         <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', lineHeight: '1.3', color: '#2d3748', cursor: 'pointer' }} onClick={() => navigate(`/product/${product.id}`)}>
                           {product.name}
                           {product.isHidden && (
@@ -374,7 +402,6 @@ function MainApp() {
                             className="add-to-cart-btn"
                             onClick={() => addToCart(product)}
                             disabled={product.stockQuantity === 0}
-                            style={{ width: '100%', padding: '10px', backgroundColor: product.stockQuantity === 0 ? '#cbd5e0' : '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: product.stockQuantity === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.95rem', transition: 'background-color 0.2s' }}
                           >
                             {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart 🛒'}
                           </button>
@@ -391,7 +418,6 @@ function MainApp() {
                 </p>
               )}
 
-              {/* Pagination Controls */}
               {!isLoading && totalPages > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '2rem' }}>
                   <button 
@@ -420,17 +446,10 @@ function MainApp() {
           </div>
         } />
 
-        <Route path="/product/:id" element={
-          <ProductDetails addToCart={addToCart} />
-        } />
+        <Route path="/product/:id" element={<ProductDetails addToCart={addToCart} />} />
         
         <Route path="/cart" element={
-          <Cart 
-            cart={cart} 
-            updateQuantity={updateQuantity} 
-            removeFromCart={removeFromCart} 
-            handleCheckout={handleCheckout} 
-          />
+          <Cart cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} handleCheckout={handleCheckout} />
         } />
 
         <Route path="/admin" element={
@@ -440,15 +459,8 @@ function MainApp() {
         } />
 
         <Route path="/profile" element={<UserProfile />} />
-
         <Route path="/orders" element={<OrderHistory />} />
-
-        <Route path="/success" element={
-          <Success clearCart={() => {
-            setCart([]);
-            localStorage.removeItem('cart');
-          }} />
-        } />
+        <Route path="/success" element={<Success clearCart={() => { setCart([]); localStorage.removeItem('cart'); }} />} />
       </Routes>
 
       {isCartOpen && !isAdmin && (
@@ -471,33 +483,13 @@ function MainApp() {
                         <p style={{ margin: '0 0 10px 0', color: '#718096' }}>${item.price.toFixed(2)} each</p>
                         
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <button 
-                            onClick={() => updateQuantity(item.id, -1)} 
-                            disabled={item.cartQuantity <= 1} 
-                            style={{ padding: '2px 8px', cursor: item.cartQuantity <= 1 ? 'not-allowed' : 'pointer' }}
-                          >
-                            -
-                          </button>
+                          <button onClick={() => updateQuantity(item.id, -1)} disabled={item.cartQuantity <= 1} style={{ padding: '2px 8px', cursor: item.cartQuantity <= 1 ? 'not-allowed' : 'pointer' }}>-</button>
                           <span style={{ fontWeight: 'bold' }}>{item.cartQuantity}</span>
-                          <button 
-                            onClick={() => updateQuantity(item.id, 1)} 
-                            disabled={item.cartQuantity >= item.stockQuantity} 
-                            style={{ padding: '2px 8px', cursor: item.cartQuantity >= item.stockQuantity ? 'not-allowed' : 'pointer' }}
-                          >
-                            +
-                          </button>
-                          
-                          <button 
-                            onClick={() => removeFromCart(item.id)} 
-                            style={{ marginLeft: '10px', color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}
-                          >
-                            Remove
-                          </button>
+                          <button onClick={() => updateQuantity(item.id, 1)} disabled={item.cartQuantity >= item.stockQuantity} style={{ padding: '2px 8px', cursor: item.cartQuantity >= item.stockQuantity ? 'not-allowed' : 'pointer' }}>+</button>
+                          <button onClick={() => removeFromCart(item.id)} style={{ marginLeft: '10px', color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}>Remove</button>
                         </div>
                       </div>
-                      <p className="item-total" style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                        ${(item.price * item.cartQuantity).toFixed(2)}
-                      </p>
+                      <p className="item-total" style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>${(item.price * item.cartQuantity).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>

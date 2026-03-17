@@ -28,10 +28,7 @@ export default function ProductDetails({ addToCart }) {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // 🚀 UPGRADED: Track the index instead of the URL so we can use Next/Prev arrows
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  // 🚀 NEW: State for the Amazon-style Hover Zoom
   const [zoomStyle, setZoomStyle] = useState({ transformOrigin: 'center center', transform: 'scale(1)' });
 
   const [reviews, setReviews] = useState([]);
@@ -113,7 +110,6 @@ export default function ProductDetails({ addToCart }) {
 
   const allImages = product.imageUrl ? [product.imageUrl, ...(product.imageGallery || [])] : [];
 
-  // 🚀 NEW: Arrow Handlers
   const handlePrevImage = () => {
     setCurrentImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
   };
@@ -122,24 +118,22 @@ export default function ProductDetails({ addToCart }) {
     setCurrentImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
   };
 
-  // 🚀 NEW: Hover Zoom Math Logic
   const handleMouseMove = (e) => {
-    // Get the exact coordinates of the mouse inside the image box
+    // 🚀 NEW: Disable zoom logic on mobile phones!
+    if (window.innerWidth <= 768) return; 
+
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - left) / width) * 100;
     const y = ((e.clientY - top) / height) * 100;
-    
-    // Zoom in 2x, centering exactly where the mouse is pointing
     setZoomStyle({ transformOrigin: `${x}% ${y}%`, transform: 'scale(2.2)' });
   };
 
   const handleMouseLeave = () => {
-    // Reset back to normal when the mouse leaves the image
     setZoomStyle({ transformOrigin: 'center center', transform: 'scale(1)' });
   };
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '1rem' }}>
       <button 
         onClick={() => navigate(-1)} 
         style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '5px', padding: 0 }}
@@ -147,18 +141,14 @@ export default function ProductDetails({ addToCart }) {
         ← Back to Shop
       </button>
 
-      <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '3rem', marginBottom: '3rem' }}>
+      {/* 🚀 UPGRADED: Using CSS class instead of inline styles */}
+      <div className="product-details-container">
         
-        {/* Left Side: Pro Image Gallery System */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           
-          {/* Main Image Viewport */}
+          {/* 🚀 UPGRADED: Using CSS class instead of inline styles */}
           <div 
-            style={{ 
-              position: 'relative', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #edf2f7', 
-              display: 'flex', justifyContent: 'center', alignItems: 'center', 
-              height: '400px', overflow: 'hidden' // 🚀 HIDDEN OVERFLOW is required for the zoom to work!
-            }}
+            className="product-image-viewer"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
@@ -168,15 +158,14 @@ export default function ProductDetails({ addToCart }) {
                 alt={product.name} 
                 style={{ 
                   width: '100%', height: '100%', objectFit: 'contain', 
-                  transition: 'transform 0.1s ease-out', // Smooth zoom
-                  ...zoomStyle // Apply the math coordinates!
+                  transition: 'transform 0.1s ease-out', 
+                  ...zoomStyle 
                 }} 
               />
             ) : (
               <span style={{ color: '#a0aec0', fontSize: '1.2rem' }}>No Image Available</span>
             )}
 
-            {/* Left Arrow */}
             {allImages.length > 1 && (
               <button 
                 onClick={(e) => { e.stopPropagation(); handlePrevImage(); }} 
@@ -186,7 +175,6 @@ export default function ProductDetails({ addToCart }) {
               </button>
             )}
 
-            {/* Right Arrow */}
             {allImages.length > 1 && (
               <button 
                 onClick={(e) => { e.stopPropagation(); handleNextImage(); }} 
@@ -197,13 +185,12 @@ export default function ProductDetails({ addToCart }) {
             )}
           </div>
 
-          {/* Thumbnail Row */}
           {allImages.length > 1 && (
             <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
               {allImages.map((imgUrl, index) => (
                 <div 
                   key={index} 
-                  onMouseEnter={() => setCurrentImageIndex(index)} // 🚀 Updates on hover (Amazon style) or click
+                  onMouseEnter={() => setCurrentImageIndex(index)}
                   style={{ 
                     width: '70px', height: '70px', flexShrink: 0, cursor: 'pointer', 
                     border: currentImageIndex === index ? '2px solid #3182ce' : '1px solid #e2e8f0', 
@@ -219,15 +206,15 @@ export default function ProductDetails({ addToCart }) {
           )}
         </div>
 
-        {/* Right Side: Info */}
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <span style={{ backgroundColor: '#edf2f7', color: '#4a5568', padding: '4px 10px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold', alignSelf: 'flex-start', marginBottom: '1rem' }}>
             {product.category}
           </span>
           
-          <h1 style={{ margin: '0 0 10px 0', color: '#2d3748', fontSize: '2.5rem', lineHeight: '1.2' }}>{product.name}</h1>
+          {/* 🚀 Made Title Responsive */}
+          <h1 style={{ margin: '0 0 10px 0', color: '#2d3748', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', lineHeight: '1.2' }}>{product.name}</h1>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             <StarRating rating={Math.round(averageRating)} />
             <span style={{ color: '#718096', fontSize: '0.95rem', fontWeight: 'bold' }}>
               {reviews.length > 0 ? `${averageRating} out of 5 (${reviews.length} reviews)` : 'No reviews yet'}
@@ -261,7 +248,6 @@ export default function ProductDetails({ addToCart }) {
         </div>
       </div>
 
-      {/* --- ⭐ VERIFIED REVIEWS SECTION --- */}
       <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
         <h2 style={{ margin: '0 0 1.5rem 0', color: '#2d3748', borderBottom: '2px solid #edf2f7', paddingBottom: '1rem' }}>
           Customer Reviews
