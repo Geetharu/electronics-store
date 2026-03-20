@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // 🚀 NEW: Import navigation
+import { useNavigate } from 'react-router-dom'; 
+import toast from 'react-hot-toast'; // 🚀 FIXED: Upgraded from alerts to toasts!
 
 export default function UserProfile() {
-  const navigate = useNavigate(); // 🚀 NEW: Setup navigation
+  const navigate = useNavigate(); 
   const [profile, setProfile] = useState({
     username: '', phone: '', address: '', city: '', postalCode: ''
   });
@@ -36,6 +37,8 @@ export default function UserProfile() {
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
+    const loadingToast = toast.loading("Saving profile...");
+    
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile`, {
         method: 'PUT',
@@ -48,12 +51,12 @@ export default function UserProfile() {
       
       if (response.ok) {
         setIsEditing(false);
-        alert("✅ Profile updated securely!");
+        toast.success("Profile updated securely!", { id: loadingToast });
       } else {
-        alert("Failed to update profile.");
+        toast.error("Failed to update profile.", { id: loadingToast });
       }
     } catch (error) {
-      console.error("Save error:", error);
+      toast.error("Network error.", { id: loadingToast });
     } finally {
       setIsSaving(false);
     }
@@ -62,7 +65,6 @@ export default function UserProfile() {
   return (
     <div style={{ maxWidth: '600px', margin: '2rem auto', padding: '0 1rem' }}>
       
-      {/* 🚀 NEW: Clean Back Button */}
       <button 
         onClick={() => navigate(-1)} 
         style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '5px', padding: 0 }}
@@ -71,16 +73,22 @@ export default function UserProfile() {
       </button>
 
       <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #edf2f7', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-          <h2 style={{ margin: 0, color: '#2d3748' }}>👤 My Profile</h2>
+        
+        {/* 🚀 FIXED: Industry standard two-column layout. Info on left, Action on right! */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #edf2f7', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+          <div>
+            <h2 style={{ margin: '0 0 5px 0', color: '#2d3748' }}>👤 My Profile</h2>
+            <p style={{ margin: 0, color: '#718096', fontSize: '0.9rem' }}>Manage your account details and delivery addresses.</p>
+          </div>
           
-          {/* 🚀 UX FIX: Made the Edit button pop! */}
           {!isEditing && (
             <button 
               onClick={() => setIsEditing(true)} 
-              style={{ backgroundColor: '#3182ce', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 4px rgba(49,130,206,0.3)', transition: 'background-color 0.2s' }}
+              style={{ backgroundColor: '#edf2f7', color: '#4a5568', padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e0', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#e2e8f0'; e.currentTarget.style.color = '#2d3748'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#edf2f7'; e.currentTarget.style.color = '#4a5568'; }}
             >
-              ✏️ Edit Info
+              ✏️ Edit Profile
             </button>
           )}
         </div>
