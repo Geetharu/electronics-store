@@ -1,55 +1,86 @@
-import { Link } from 'react-router-dom';
-import { Facebook, Twitter, Instagram, Mail, Phone, MapPin } from 'lucide-react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Facebook, Twitter, Instagram, Github, Mail, Phone, MapPin, Cpu } from 'lucide-react';
 
 export default function Footer() {
+  const navigate = useNavigate();
+  const currentYear = new Date().getFullYear();
+
+  const handleNavigation = (path) => {
+    navigate(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <footer style={{ backgroundColor: '#1a202c', color: '#e2e8f0', padding: '4rem 2rem 2rem', marginTop: 'auto' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '3rem' }}>
+    <footer className="main-footer">
+      <div className="footer-container">
         
         {/* Brand Section */}
-        <div>
-          <h2 style={{ color: 'white', margin: '0 0 1rem 0', fontSize: '1.8rem' }}>Elite Electronics ⚡</h2>
-          <p style={{ color: '#a0aec0', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-            Delivering excellence in every device. Premium electronics, unbeatable prices, and customer service that actually cares.
+        <div className="footer-section brand-info">
+          <div className="footer-logo" onClick={() => handleNavigation('/')}>
+            <Cpu size={32} color="#63b3ed" />
+            <span>Elite Electronics ⚡</span>
+          </div>
+          <p className="footer-description">
+            Your destination for premium tech, high-performance hardware, and the future of digital excellence.
           </p>
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <a href="#" style={{ color: '#a0aec0', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#3182ce'} onMouseLeave={e => e.target.style.color = '#a0aec0'}><Facebook size={24} /></a>
-            <a href="#" style={{ color: '#a0aec0', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#63b3ed'} onMouseLeave={e => e.target.style.color = '#a0aec0'}><Twitter size={24} /></a>
-            <a href="#" style={{ color: '#a0aec0', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#d53f8c'} onMouseLeave={e => e.target.style.color = '#a0aec0'}><Instagram size={24} /></a>
+          <div className="social-links">
+            <a href="#"><Facebook size={20} /></a>
+            <a href="#"><Twitter size={20} /></a>
+            <a href="#"><Instagram size={20} /></a>
+            <a href="#"><Github size={20} /></a>
           </div>
         </div>
 
         {/* Quick Links */}
-        <div>
-          <h3 style={{ color: 'white', margin: '0 0 1.5rem 0', fontSize: '1.2rem' }}>Quick Links</h3>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <li><Link to="/about" style={{ color: '#a0aec0', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = 'white'} onMouseLeave={e => e.target.style.color = '#a0aec0'}>About Us</Link></li>
-            <li><Link to="/products" style={{ color: '#a0aec0', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = 'white'} onMouseLeave={e => e.target.style.color = '#a0aec0'}>Shop All Products</Link></li>
-            <li><Link to="/faq" style={{ color: '#a0aec0', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = 'white'} onMouseLeave={e => e.target.style.color = '#a0aec0'}>FAQ & Support</Link></li>
-            <li><Link to="/terms" style={{ color: '#a0aec0', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = 'white'} onMouseLeave={e => e.target.style.color = '#a0aec0'}>Terms & Conditions</Link></li>
+        <div className="footer-section">
+          <h4>Shop & Explore</h4>
+          <ul>
+            <li onClick={() => handleNavigation('/')}>All Products</li>
+            <li onClick={() => handleNavigation('/')}>Featured Deals</li>
+            <li onClick={() => handleNavigation('/wishlist')}>My Wishlist</li>
+            <li onClick={() => handleNavigation('/cart')}>Shopping Cart</li>
+          </ul>
+        </div>
+
+        {/* Support Links */}
+        <div className="footer-section">
+          <h4>Customer Support</h4>
+          <ul>
+            <li onClick={() => handleNavigation('/contact')}>Help Center</li>
+            <li onClick={() => handleNavigation('/faq')}>FAQs</li>
+            <li onClick={() => handleNavigation('/about')}>About Us</li>
+            <li onClick={() => handleNavigation('/terms')}>Terms of Service</li>
           </ul>
         </div>
 
         {/* Contact Info */}
-        <div>
-          <h3 style={{ color: 'white', margin: '0 0 1.5rem 0', fontSize: '1.2rem' }}>Contact Us</h3>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#a0aec0' }}>
-              <MapPin size={20} color="#3182ce" /> 123 Tech Avenue, Silicon Valley, CA 90210
-            </li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#a0aec0' }}>
-              <Phone size={20} color="#3182ce" /> +1 (800) 555-0199
-            </li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#a0aec0' }}>
-              <Mail size={20} color="#3182ce" /> support@eliteelectronics.com
-            </li>
-          </ul>
+        <div className="footer-section contact-info">
+          <h4>Get In Touch</h4>
+          <div className="contact-item">
+            <Mail size={18} />
+            <span>support@eliteelectronics.com</span>
+          </div>
+          <div className="contact-item">
+            <Phone size={18} />
+            <span>+1 (800) 555-0199</span>
+          </div>
+          <div className="contact-item">
+            <MapPin size={18} />
+            <span>123 Tech Ave, Silicon Valley, CA</span>
+          </div>
         </div>
 
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '3rem auto 0', paddingTop: '1.5rem', borderTop: '1px solid #2d3748', textAlign: 'center', color: '#718096', fontSize: '0.9rem' }}>
-        <p>&copy; {new Date().getFullYear()} Elite Electronics. All rights reserved.</p>
+      <div className="footer-bottom">
+        <div className="footer-bottom-content">
+          <p>&copy; {currentYear} Elite Electronics Inc. All rights reserved.</p>
+          <div className="footer-legal">
+            <span onClick={() => handleNavigation('/terms')}>Privacy Policy</span>
+            <span onClick={() => handleNavigation('/terms')}>Cookie Settings</span>
+          </div>
+        </div>
       </div>
     </footer>
   );

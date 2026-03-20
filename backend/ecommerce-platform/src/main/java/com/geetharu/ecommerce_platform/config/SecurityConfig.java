@@ -36,7 +36,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration cfg = new CorsConfiguration();
-                    cfg.setAllowedOrigins(List.of("http://localhost:5173"));
+                    // 🚀 BOTH URLS ADDED BELOW: Cloud (Vercel) and Local
+                    cfg.setAllowedOrigins(List.of(
+                            "https://elite-electronics-store.vercel.app",
+                            "http://localhost:5173"
+                    ));
                     cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                     cfg.setAllowedHeaders(List.of("*"));
                     cfg.setAllowCredentials(true);
@@ -44,8 +48,21 @@ public class SecurityConfig {
                 }))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // 🔓 ALLOW PRE-FLIGHT CHECKS
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/products/**").permitAll()
+
+                        // 🚀 FIX: Let EVERYONE (logged in or out) read the product reviews
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/reviews/product/**").permitAll()
+
+                        .requestMatchers("/error").permitAll()
+
+                        // Let Stripe access the Webhook URL without logging in
+                        .requestMatchers("/api/payment/webhook").permitAll()
+
+                        // 💳 EXPLICITLY REQUIRE AUTH FOR OTHER PAYMENTS
+                        .requestMatchers("/api/payment/**").authenticated()
                         .anyRequest().authenticated()
                 );
 

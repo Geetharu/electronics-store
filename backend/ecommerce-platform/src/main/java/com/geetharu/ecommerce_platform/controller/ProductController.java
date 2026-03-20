@@ -2,11 +2,18 @@ package com.geetharu.ecommerce_platform.controller;
 
 import com.geetharu.ecommerce_platform.dto.CartItemDTO;
 import com.geetharu.ecommerce_platform.entity.Product;
+import com.geetharu.ecommerce_platform.repository.ProductRepository;
 import com.geetharu.ecommerce_platform.service.ProductService;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -14,14 +21,75 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductRepository productRepository;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, ProductRepository productRepository) {
         this.productService = productService;
+        this.productRepository = productRepository;
     }
 
     @GetMapping
     public List<Product> getAllProducts() {
         return productService.getAllProducts();
+    }
+
+    @GetMapping("/paged")
+    public ResponseEntity<Map<String, Object>> getPaginatedProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size,
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "All") String category,
+            @RequestParam(defaultValue = "default") String sort
+    ) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+            Page<Product> productPage = productService.getPaginatedProducts(page, size, search, category, sort, isAdmin);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("products", productPage.getContent());
+            response.put("currentPage", productPage.getNumber());
+            response.put("totalItems", productPage.getTotalElements());
+            response.put("totalPages", productPage.getTotalPages());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(null);
+        }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getProductById(@PathVariable Long id) {
+        try {
+            Product product = productService.getProductById(id);
+            if (product != null) {
+                return ResponseEntity.ok(product);
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+        }
+    }
+
+    // 🚀 UPDATED: Calls the new Soft Delete safe query
+    @GetMapping("/{id}/related")
+    public ResponseEntity<List<Product>> getRelatedProducts(@PathVariable Long id) {
+        try {
+            Product currentProduct = productService.getProductById(id);
+            if (currentProduct == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            List<Product> related = productRepository.findTop4ByCategoryAndIdNotAndIsHiddenFalseAndIsDeletedFalse(
+                    currentProduct.getCategory(), id
+            );
+
+            return ResponseEntity.ok(related);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PostMapping
@@ -50,9 +118,8 @@ public class ProductController {
             existingProduct.setStockQuantity(productDetails.getStockQuantity());
             existingProduct.setSku(productDetails.getSku());
             existingProduct.setHidden(productDetails.isHidden());
-
-            // 🖼️ NEW: Save the image URL during an update!
             existingProduct.setImageUrl(productDetails.getImageUrl());
+            existingProduct.setImageGallery(productDetails.getImageGallery());
 
             Product updatedProduct = productService.updateProduct(id, existingProduct);
             return ResponseEntity.ok(updatedProduct);

@@ -1,7 +1,7 @@
 package com.geetharu.ecommerce_platform.entity;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import java.util.List;
 
 @Entity
 @Table(name = "products")
@@ -17,17 +17,29 @@ public class Product {
     private Integer stockQuantity;
     private String category;
 
-    // 🛠️ NEW: Forces Spring Boot to use the exact name "isHidden"
-    @JsonProperty("isHidden")
-    private boolean isHidden;
-
-    // Field to store the Cloudinary link
     @Column(length = 1000)
     private String imageUrl;
 
-    public Product() {
-    }
+    @ElementCollection
+    private List<String> imageGallery;
 
+    @Column(columnDefinition = "boolean default false")
+    private boolean isHidden = false;
+
+    // 🚀 THE FIX: Adding the proper Soft Delete column to the database
+    @Column(columnDefinition = "boolean default false")
+    private boolean isDeleted = false;
+
+    @Transient
+    private Double averageRating;
+
+    @Transient
+    private Integer reviewCount;
+
+    // Constructors
+    public Product() {}
+
+    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -46,10 +58,22 @@ public class Product {
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
 
-    @JsonProperty("isHidden")
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public List<String> getImageGallery() { return imageGallery; }
+    public void setImageGallery(List<String> imageGallery) { this.imageGallery = imageGallery; }
+
     public boolean isHidden() { return isHidden; }
     public void setHidden(boolean hidden) { isHidden = hidden; }
 
-    public String getImageUrl() { return imageUrl; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    // 🚀 THE FIX: Getters and setters for Soft Delete
+    public boolean isDeleted() { return isDeleted; }
+    public void setDeleted(boolean deleted) { isDeleted = deleted; }
+
+    public Double getAverageRating() { return averageRating; }
+    public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
+
+    public Integer getReviewCount() { return reviewCount; }
+    public void setReviewCount(Integer reviewCount) { this.reviewCount = reviewCount; }
 }
