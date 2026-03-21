@@ -38,15 +38,18 @@ public class PaymentController {
     @Autowired
     private UserRepository userRepository;
 
-    // 🚀 NEW: We inject our new secure "Vault" here
     @Autowired
     private OrderService orderService;
 
     @PostMapping("/create-checkout-session")
-    public ResponseEntity<Map<String, String>> createCheckoutSession(@RequestBody List<Map<String, Object>> cart) {
+    public ResponseEntity<Map<String, String>> createCheckoutSession(@RequestBody Map<String, Object> payload) {
         Stripe.apiKey = stripeApiKey;
 
         try {
+            // 1. Extract the cart items and promo code from the wrapper payload
+            List<Map<String, Object>> cart = (List<Map<String, Object>>) payload.get("items");
+            String promoCode = (String) payload.get("promoCode");
+
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String username = auth.getName();
             User currentUser = userRepository.findByUsername(username).orElse(null);
@@ -95,6 +98,15 @@ public class PaymentController {
                 paramsBuilder.putMetadata("user_id", String.valueOf(currentUser.getId()));
             }
 
+            // 2. THE DISCOUNT LOGIC: Apply Stripe Coupon if Promo Code exists
+            if (promoCode != null && !promoCode.trim().isEmpty()) {
+                paramsBuilder.addDiscount(
+                        SessionCreateParams.Discount.builder()
+                                .setCoupon(promoCode.trim().toUpperCase())
+                                .build()
+                );
+            }
+
             Session session = Session.create(paramsBuilder.build());
 
             Map<String, String> responseData = new HashMap<>();
@@ -133,14 +145,13 @@ public class PaymentController {
                 if (session.getMetadata() != null) {
                     String cartDetails = session.getMetadata().get("cart_details");
                     String userIdStr = session.getMetadata().get("user_id");
-                    String stripeSessionId = session.getId(); // 🚀 Grab the unique Stripe ID!
+                    String stripeSessionId = session.getId();
 
                     if (userIdStr != null && cartDetails != null && !cartDetails.isEmpty()) {
                         Long userId = Long.parseLong(userIdStr);
                         Double totalAmount = session.getAmountTotal() / 100.0;
 
                         try {
-                            // 🚀 Pass the heavy lifting to our secure, transactional Service!
                             orderService.processStripePayment(userId, stripeSessionId, totalAmount, cartDetails);
                         } catch (Exception e) {
                             System.err.println("❌ Critical Database Error during checkout: " + e.getMessage());

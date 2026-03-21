@@ -218,7 +218,7 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
               <span className="total-value">${total.toFixed(2)}</span>
             </div>
 
-            <button className="checkout-btn" onClick={handleCheckout}>
+            <button className="checkout-btn" onClick={() => handleCheckout(appliedPromo ? appliedPromo.code : "")}>
               <Lock size={18} /> Proceed to Checkout
             </button>
 

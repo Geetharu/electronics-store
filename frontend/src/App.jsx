@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast'; 
-import { Settings, Store, User, Package, Heart, ShoppingCart, LogOut, Menu, X, Plus, Minus, Trash2, ArrowUp, ChevronDown, MapPin, Headphones, PackageOpen } from 'lucide-react'; 
-import './App.css';
+import { Settings, Store, User, Package, Heart, ShoppingCart, LogOut, Menu, X, Plus, Minus, Trash2, ArrowUp, ChevronDown, MapPin, Headphones, PackageOpen } from 'lucide-react';
 
 import Login from './Login'; 
 import Register from './Register';
@@ -287,22 +286,28 @@ function MainApp() {
     }));
   };
 
-  const handleCheckout = async () => {
+  // 🚀 FIXED: Checkout now expects a promo code and wraps the payload!
+  const handleCheckout = async (passedPromoCode = "") => {
     try {
+      const checkoutPayload = {
+        items: cart,
+        promoCode: passedPromoCode
+      };
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payment/create-checkout-session`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify(cart),
+        body: JSON.stringify(checkoutPayload),
       });
 
       if (response.ok) {
         const data = await response.json();
         window.location.href = data.url; 
       } else {
-        showToast("Checkout failed to initialize.", "error");
+        showToast("Checkout failed to initialize. Invalid code or server error.", "error");
       }
     } catch (error) {
       showToast("Server connection lost.", "error");
