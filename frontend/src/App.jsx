@@ -662,7 +662,7 @@ function MainApp() {
           <Route path="/cart" element={<Cart cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} handleCheckout={handleCheckout} />} />
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard products={allProducts} onProductAction={() => { fetchAllProducts(); fetchStorefrontProducts(); }} /></ProtectedRoute>} />
           <Route path="/profile" element={<UserProfile />} />
-          <Route path="/orders" element={<OrderHistory />} />
+          <Route path="/orders" element={<OrderHistory addToCart={addToCart} />} />
           <Route path="/success" element={<Success clearCart={() => { setCart([]); localStorage.removeItem('cart'); }} />} />
         </Routes>
       </div>

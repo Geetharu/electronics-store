@@ -1,75 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Package, Search, RotateCcw, Check, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
+import html2pdf from 'html2pdf.js';
 
-// 🚀 The Visual Timeline Component
-const OrderTimeline = ({ order }) => {
-  const isCancelled = order.status === 'CANCELLED';
-  
-  const expectedDeliveryDate = new Date(order.orderDate);
-  expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() + 5);
-  
-  const steps = [
-    { label: 'Paid', date: order.orderDate, isCompleted: true, isExpected: false },
-    { label: 'Shipped', date: order.shippedAt, isCompleted: !!order.shippedAt, isExpected: false },
-    { 
-      label: order.deliveredAt ? 'Delivered' : 'Expected Delivery', 
-      date: order.deliveredAt || expectedDeliveryDate, 
-      isCompleted: !!order.deliveredAt,
-      isExpected: !order.deliveredAt 
-    }
-  ];
-
-  // We don't show the timeline if it's cancelled, we show the red box instead!
-  if (isCancelled) return null;
-
-  return (
-    <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px dashed #e2e8f0' }}>
-      <h4 style={{ margin: '0 0 1.5rem 0', color: '#4a5568', textAlign: 'center' }}>Package Progress</h4>
-      <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', padding: '0 20px' }}>
-        
-        <div style={{ position: 'absolute', top: '15px', left: '15%', right: '15%', height: '4px', backgroundColor: '#edf2f7', zIndex: 1 }}></div>
-        
-        <div style={{ 
-          position: 'absolute', top: '15px', left: '15%', height: '4px', zIndex: 2,
-          backgroundColor: '#38a169', transition: 'width 0.5s ease',
-          width: order.deliveredAt ? '70%' : order.shippedAt ? '35%' : '0%'
-        }}></div>
-
-        {steps.map((step, index) => (
-          <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 3, width: '33%' }}>
-            <div style={{ 
-              width: '34px', height: '34px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              backgroundColor: step.isCompleted ? '#38a169' : '#edf2f7', 
-              color: step.isCompleted ? 'white' : '#a0aec0',
-              fontWeight: 'bold', border: '4px solid white', boxShadow: '0 0 0 1px #cbd5e0'
-            }}>
-              {step.isCompleted ? '✓' : index + 1}
-            </div>
-            
-            <p style={{ margin: '8px 0 2px 0', fontWeight: 'bold', color: step.isCompleted ? '#2d3748' : '#a0aec0', fontSize: '0.9rem' }}>
-              {step.label}
-            </p>
-            
-            {step.date && (
-              <div style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '4px', color: step.isExpected ? '#2b6cb0' : '#718096' }}>
-                <div style={{ fontWeight: step.isExpected ? 'bold' : 'normal' }}>
-                  {step.isExpected ? 'Arriving by ' : ''} 
-                  {new Date(step.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: step.isExpected ? undefined : 'numeric' })}
-                </div>
-                {!step.isExpected && (
-                  <div style={{ fontWeight: '500' }}>{new Date(step.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-export default function OrderHistory() {
+export default function OrderHistory({ addToCart }) {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedOrders, setExpandedOrders] = useState({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -78,10 +17,9 @@ export default function OrderHistory() {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        
         if (response.ok) {
           const data = await response.json();
-          setOrders(data);
+          setOrders(data.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate)));
         }
       } catch (error) {
         console.error("Failed to fetch orders:", error);
@@ -89,112 +27,347 @@ export default function OrderHistory() {
         setIsLoading(false);
       }
     };
-
     fetchOrders();
   }, []);
 
-  if (isLoading) {
-    return <div style={{ textAlign: 'center', padding: '3rem' }}>Loading your order history... ⏳</div>;
-  }
+  const toggleDetails = (orderId) => {
+    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }));
+  };
+
+  const goToProduct = (productId) => { if (productId) navigate(`/product/${productId}`); };
+  
+  const handleWriteReview = (productId) => { if (productId) navigate(`/product/${productId}?review=true`); };
+
+  const handleBuyAgain = (e, item) => {
+    e.stopPropagation();
+    if (!item.product) { toast.error("Product unavailable."); return; }
+    if(addToCart) { addToCart(e, item.product); } 
+    else { toast.success(`${item.product.name} added to cart!`); }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    const token = sessionStorage.getItem('token');
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        toast.success(`Order #${orderId} cancelled successfully.`, { icon: '🚫' });
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'CANCELLED' } : o));
+      } else {
+        toast.error("Failed to cancel order. It may have already shipped.");
+      }
+    } catch (err) { toast.error("Error connecting to server."); }
+  };
+
+  const handleTrackPackage = (tracking, carrier) => {
+    if (!tracking) { toast.error("Tracking info not available yet."); return; }
+    const url = carrier?.toLowerCase() === 'fedex' 
+      ? `https://www.fedex.com/fedextrack/?trknbr=${tracking}`
+      : `https://www.google.com/search?q=track+package+${tracking}`;
+    window.open(url, '_blank');
+  };
+
+  // ==========================================
+  // 🚀 THE SMART DISCOUNT SPLITTER
+  // ==========================================
+  const calculateOrderMath = (order) => {
+    const rawSubtotal = order.items?.reduce((sum, item) => sum + (item.priceAtPurchase * item.quantity), 0) || 0;
+    const originalTax = rawSubtotal * 0.08;
+    const shipping = rawSubtotal >= 150 ? 0 : 15.00;
+
+    let promoDiscount = 0;
+    let taxDiscount = 0;
+    let promoName = order.promoCode || 'Applied';
+
+    // Calculate theoretical max total with absolutely no discounts
+    const absoluteMaxTotal = rawSubtotal + originalTax + shipping;
+    const missingMoney = Math.max(0, absoluteMaxTotal - order.totalAmount);
+
+    if (missingMoney > 0.01) {
+        // SCENARIO 1: Both 10% Welcome Coupon AND Tax Waiver were applied
+        if (Math.abs(missingMoney - (rawSubtotal * 0.10 + originalTax)) < 0.1) {
+            promoDiscount = rawSubtotal * 0.10;
+            taxDiscount = originalTax;
+            if(!order.promoCode) promoName = 'WELCOME10';
+        }
+        // SCENARIO 2: Both 20% Tech Coupon AND Tax Waiver
+        else if (Math.abs(missingMoney - (rawSubtotal * 0.20 + originalTax)) < 0.1) {
+            promoDiscount = rawSubtotal * 0.20;
+            taxDiscount = originalTax;
+            if(!order.promoCode) promoName = 'TECH20';
+        }
+        // SCENARIO 3: Flat $50 Coupon AND Tax Waiver
+        else if (Math.abs(missingMoney - (50 + originalTax)) < 0.1) {
+            promoDiscount = 50;
+            taxDiscount = originalTax;
+            if(!order.promoCode) promoName = 'FLAT50';
+        }
+        // SCENARIO 4: ONLY Tax was waived (No Coupon)
+        else if (Math.abs(missingMoney - originalTax) < 0.1) {
+            promoDiscount = 0;
+            taxDiscount = originalTax;
+        }
+        // SCENARIO 5: ONLY 10% Welcome Coupon was applied (Tax was recalculated, not waived)
+        else if (Math.abs(missingMoney - (rawSubtotal * 0.108)) < 0.1) {
+            promoDiscount = rawSubtotal * 0.10;
+            taxDiscount = promoDiscount * 0.08; // Just the tax reduction from the cheaper price
+            if(!order.promoCode) promoName = 'WELCOME10';
+        }
+        // FALLBACK: Math doesn't perfectly align, assume standard split
+        else {
+            if (missingMoney > originalTax) {
+                taxDiscount = originalTax;
+                promoDiscount = missingMoney - originalTax;
+            } else {
+                promoDiscount = missingMoney;
+                taxDiscount = 0;
+            }
+        }
+    }
+
+    return {
+        rawSubtotal,
+        originalTax,
+        shipping,
+        promoDiscount,
+        hasPromo: promoDiscount > 0.01,
+        promoName,
+        taxDiscount,
+        hasTaxDiscount: taxDiscount > 0.01
+    };
+  };
+
+  // ==========================================
+  // 🚀 ENTERPRISE INVOICE ENGINE
+  // ==========================================
+  const handleDownloadInvoice = (order) => {
+    toast.success("Preparing PDF...", { duration: 1500 });
+    
+    const math = calculateOrderMath(order);
+    const orderIdString = order.orderTrackingNumber || order.id;
+    
+    const printElement = document.createElement('div');
+    printElement.innerHTML = `
+      <div style="font-family: 'Helvetica', Arial, sans-serif; padding: 40px; color: #333;">
+        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 30px;">
+          <div>
+            <h1 style="color: #2b6cb0; margin: 0; font-size: 24px;">Elite Electronics ⚡</h1>
+            <p style="color: #666; font-size: 13px; margin: 5px 0;">Official Receipt & Tax Invoice</p>
+            <p style="font-size: 12px; margin: 0;">Date: ${new Date(order.orderDate).toLocaleDateString()}</p>
+          </div>
+          <div style="text-align: right;">
+            <h2 style="margin: 0; font-size: 20px;">Order #${orderIdString}</h2>
+            <p style="text-transform: uppercase; font-weight: bold; color: #2b6cb0; font-size: 12px; margin: 5px 0;">${order.status}</p>
+          </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #eee;">
+              <th style="text-align: left; padding: 12px; font-size: 13px;">Item Description</th>
+              <th style="text-align: center; padding: 12px; font-size: 13px;">Qty</th>
+              <th style="text-align: right; padding: 12px; font-size: 13px;">Unit Price</th>
+              <th style="text-align: right; padding: 12px; font-size: 13px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${order.items.map(item => `
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px; font-size: 13px;">${item.product?.name || 'Product'}</td>
+                <td style="padding: 12px; text-align: center; font-size: 13px;">${item.quantity}</td>
+                <td style="padding: 12px; text-align: right; font-size: 13px;">$${item.priceAtPurchase.toFixed(2)}</td>
+                <td style="padding: 12px; text-align: right; font-size: 13px; font-weight: bold;">$${(item.priceAtPurchase * item.quantity).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div style="width: 280px; float: right; background: #fdfdfd; border: 1px solid #eee; padding: 15px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+            <span>Subtotal:</span><span>$${math.rawSubtotal.toFixed(2)}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+            <span>Shipping:</span><span>${math.shipping === 0 ? 'FREE' : '$' + math.shipping.toFixed(2)}</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+            <span>Estimated Tax (8%):</span><span>$${math.originalTax.toFixed(2)}</span>
+          </div>
+          
+          ${math.hasPromo ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #058552; font-weight: bold;">
+            <span>Coupon (${math.promoName}):</span><span>-$${math.promoDiscount.toFixed(2)}</span>
+          </div>` : ''}
+
+          ${math.hasTaxDiscount ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #058552; font-weight: bold;">
+            <span>Tax Waiver / Discount:</span><span>-$${math.taxDiscount.toFixed(2)}</span>
+          </div>` : ''}
+
+          <div style="display: flex; justify-content: space-between; border-top: 2px solid #2b6cb0; padding-top: 10px; margin-top: 10px; font-weight: bold; font-size: 16px; color: #0f1111;">
+            <span>Grand Total:</span><span>$${order.totalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+        <div style="clear: both; padding-top: 50px; text-align: center; color: #999; font-size: 11px;">
+          Thank you for shopping with Elite Electronics.
+        </div>
+      </div>
+    `;
+
+    html2pdf().set({
+      margin: 0.5,
+      filename: `Elite_Electronics_Invoice_${orderIdString}.pdf`,
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    }).from(printElement).save();
+  };
+
+  if (isLoading) return <div style={{ textAlign: 'center', padding: '10vh 0', color: '#565959', fontSize: '14px' }}>Loading your orders...</div>;
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem' }}>
-      <h2 style={{ marginBottom: '1.5rem', color: '#2d3748' }}>📦 Your Order History</h2>
+    <div className="enterprise-order-page">
+      <h1 className="enterprise-page-title">Your Orders</h1>
 
       {orders.length === 0 ? (
-        <div style={{ backgroundColor: 'white', padding: '3rem', textAlign: 'center', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#4a5568' }}>No orders yet!</h3>
-          <p style={{ color: '#718096', margin: 0 }}>When you buy something, your receipt will appear here.</p>
+        <div style={{ padding: '40px', border: '1px solid #d5dbdb', background: '#fff', borderRadius: '8px' }}>
+          <h3 style={{ margin: 0, fontSize: '16px' }}>No orders found.</h3>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {orders.map((order) => (
-            <div key={order.id} style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-              
-              {/* --- CARD HEADER --- */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #edf2f7', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-                <div>
-                  <p style={{ margin: '0 0 5px 0', fontWeight: 'bold', color: '#2d3748', fontSize: '1.1rem' }}>
-                    Order #{order.orderTrackingNumber || order.id}
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#718096' }}>
-                    Placed on {new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: '0 0 5px 0', fontWeight: 'bold', fontSize: '1.2rem', color: '#2b6cb0' }}>${order.totalAmount?.toFixed(2)}</p>
-                  <span style={{ 
-                    backgroundColor: order.status === 'CANCELLED' ? '#fed7d7' : '#ebf8ff', 
-                    color: order.status === 'CANCELLED' ? '#822727' : '#2b6cb0', 
-                    padding: '4px 10px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold' 
-                  }}>
-                    {order.status}
-                  </span>
-                </div>
-              </div>
+        <div className="e-order-list">
+          {orders.map((order) => {
+            const isExpanded = !!expandedOrders[order.id];
+            
+            // 🚀 USE THE SMART MATH FOR THE UI AS WELL
+            const math = calculateOrderMath(order);
 
-              {/* --- WRAPPING CARDS (Grid Layout) --- */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                
-                {/* Box 1: Items */}
-                <div>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#4a5568', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    🛍️ Items Purchased
-                  </h4>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {order.items?.map((item) => (
-                      <li key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', backgroundColor: '#f7fafc', padding: '10px 12px', borderRadius: '6px', border: '1px solid #edf2f7' }}>
-                        <span style={{ fontWeight: '500', color: '#2d3748' }}>{item.quantity}x {item.product?.name}</span>
-                        <span style={{ color: '#4a5568' }}>${(item.priceAtPurchase * item.quantity).toFixed(2)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+            const isCancelled = order.status === 'CANCELLED';
+            const isDelivered = !!order.deliveredAt;
+            const isShipped = !!order.shippedAt && !isCancelled;
+            const isProcessing = !isShipped && !isDelivered && !isCancelled;
+            const expectedDate = new Date(order.orderDate);
+            expectedDate.setDate(expectedDate.getDate() + 5);
 
-                {/* Box 2: Delivery Details (Only shows if NOT Cancelled) */}
-                {order.status !== 'CANCELLED' && (
-                  <div>
-                    <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#4a5568', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      🚚 Delivery Details
-                    </h4>
-                    {order.shippingTrackingNumber ? (
-                      <div style={{ backgroundColor: '#f0fff4', padding: '12px', borderRadius: '6px', border: '1px solid #c6f6d5' }}>
-                        <p style={{ margin: '0 0 3px 0', fontSize: '0.85rem', color: '#38a169', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                          {order.shippingCarrier} Tracking
-                        </p>
-                        <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '1.1rem', color: '#22543d', letterSpacing: '1px' }}>
-                          {order.shippingTrackingNumber}
-                        </p>
+            return (
+              <div key={order.id} className="e-order-card">
+                <div className="e-order-header">
+                  <div className="e-header-left">
+                    <div className="e-meta-block">
+                      <span className="e-meta-label">Order Placed</span>
+                      <span className="e-meta-value">{new Date(order.orderDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                    <div className="e-meta-block">
+                      <span className="e-meta-label">Total</span>
+                      <span className="e-meta-value">${order.totalAmount?.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="e-header-right">
+                    <div className="e-meta-block" style={{ alignItems: 'flex-end' }}>
+                      <span className="e-meta-label">Order # {order.orderTrackingNumber || order.id}</span>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '2px' }}>
+                        <span className="e-link" onClick={() => toggleDetails(order.id)}>{isExpanded ? 'Hide order details' : 'View order details'}</span>
+                        <span style={{ color: '#d5dbdb' }}>|</span>
+                        <span className="e-link" onClick={() => handleDownloadInvoice(order)}>Invoice</span>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="e-order-body">
+                  <div className="e-body-main">
+                    {isCancelled ? (
+                      <h3 className="e-status-heading cancelled"><AlertCircle size={20}/> Cancelled</h3>
+                    ) : isDelivered ? (
+                      <h3 className="e-status-heading success"><Check size={20}/> Delivered {new Date(order.deliveredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</h3>
                     ) : (
-                      <div style={{ backgroundColor: '#f7fafc', padding: '12px', borderRadius: '6px', border: '1px solid #edf2f7', color: '#718096', fontSize: '0.9rem' }}>
-                        Tracking information will appear here once your order ships.
+                      <h3 className="e-status-heading transit">Arriving {expectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</h3>
+                    )}
+
+                    <div className="e-item-list">
+                      {order.items?.map((item) => (
+                        <div key={item.id} className="e-item-row">
+                          <img 
+                            src={item.product?.imageUrl || 'https://placehold.co/150x150/f8fafc/a0aec0?text=No+Image'} 
+                            alt={item.product?.name} 
+                            className="e-item-image" 
+                            onClick={() => goToProduct(item.product?.id)} 
+                            style={{ cursor: 'pointer' }} 
+                            onError={(e) => { 
+                              e.target.onerror = null; 
+                              e.target.src = 'https://placehold.co/150x150/f8fafc/a0aec0?text=No+Image'; 
+                            }}
+                          />
+                          <div className="e-item-details">
+                            <h4 className="e-item-title" onClick={() => goToProduct(item.product?.id)}>{item.product?.name || "Premium Tech Item"}</h4>
+                            <div className="e-item-meta">{isDelivered ? `Return window eligible` : `Quantity: ${item.quantity}`}</div>
+                            <button className="e-btn" style={{ width: 'auto', padding: '4px 12px', marginTop: '8px', fontSize: '12px' }} onClick={(e) => handleBuyAgain(e, item)}>
+                              <RotateCcw size={12}/> Buy it again
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="e-action-buttons">
+                    {(isShipped || isDelivered) && <button className="e-btn primary" onClick={() => handleTrackPackage(order.shippingTrackingNumber, order.shippingCarrier)}>Track package</button>}
+                    {isProcessing && <button className="e-btn" onClick={() => handleCancelOrder(order.id)}>Cancel order</button>}
+                    {isDelivered && (
+                      <>
+                        <button className="e-btn" onClick={() => toast.success("Return label sent to email.")}>Return or replace items</button>
+                        <button className="e-btn" onClick={() => handleWriteReview(order.items[0]?.product?.id)}>Write a product review</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="e-expanded-details">
+                    <div className="e-receipt-box">
+                      <h4>Payment Summary</h4>
+                      <div className="e-receipt-row"><span>Item(s) Subtotal:</span> <span>${math.rawSubtotal.toFixed(2)}</span></div>
+                      <div className="e-receipt-row"><span>Shipping & Handling:</span> <span>${math.shipping === 0 ? 'FREE' : `$${math.shipping.toFixed(2)}`}</span></div>
+                      <div className="e-receipt-row"><span>Estimated Tax (8%):</span> <span>${math.originalTax.toFixed(2)}</span></div>
+                      
+                      {/* 🚀 EXPLICIT PROMO DISPLAY */}
+                      {math.hasPromo && (
+                        <div className="e-receipt-row discount" style={{ color: '#058552', fontWeight: 'bold' }}>
+                          <span>Coupon ({math.promoName}):</span> 
+                          <span>-${math.promoDiscount.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {/* 🚀 EXPLICIT TAX WAIVER DISPLAY */}
+                      {math.hasTaxDiscount && (
+                        <div className="e-receipt-row discount" style={{ color: '#058552', fontWeight: 'bold' }}>
+                          <span>Tax Waiver / Discount:</span> 
+                          <span>-${math.taxDiscount.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      <div className="e-receipt-row e-receipt-total"><span>Grand Total:</span> <span>${order.totalAmount?.toFixed(2)}</span></div>
+                    </div>
+
+                    {!isCancelled && (
+                      <div className="e-timeline-box">
+                        <h4>Tracking Progress</h4>
+                        <div className="e-timeline-track">
+                          <div className="e-timeline-line"></div>
+                          <div className="e-timeline-progress" style={{ width: isDelivered ? '100%' : isShipped ? '50%' : '0%' }}></div>
+                          <div className="e-timeline-node completed"><div className="e-node-dot">✓</div><div className="e-node-label">Ordered</div></div>
+                          <div className={`e-timeline-node ${isShipped || isDelivered ? 'completed' : ''}`}><div className="e-node-dot">{isShipped || isDelivered ? '✓' : ''}</div><div className="e-node-label">Shipped</div></div>
+                          <div className={`e-timeline-node ${isDelivered ? 'completed' : ''}`}><div className="e-node-dot">{isDelivered ? '✓' : ''}</div><div className="e-node-label">Delivered</div></div>
+                        </div>
                       </div>
                     )}
                   </div>
                 )}
-
-                {/* Box 2 Alternate: Cancellation Details */}
-                {order.status === 'CANCELLED' && (
-                  <div>
-                    <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#c53030' }}>🚫 Cancellation Info</h4>
-                    <div style={{ backgroundColor: '#fff5f5', padding: '12px', borderRadius: '6px', border: '1px solid #feb2b2' }}>
-                      <p style={{ margin: '0 0 5px 0', color: '#9b2c2c', fontSize: '0.9rem' }}>
-                        A refund of <strong>${order.totalAmount?.toFixed(2)}</strong> is being processed.
-                      </p>
-                      <p style={{ margin: 0, color: '#c53030', fontSize: '0.85rem' }}>
-                        Please allow 3-5 business days for the funds to appear on your original payment method.
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
-
-              {/* --- THE TIMELINE --- */}
-              <OrderTimeline order={order} />
-
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

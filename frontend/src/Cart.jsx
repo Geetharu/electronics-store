@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ArrowRight, ShieldCheck, ShoppingBag, Tag, CreditCard, Lock, X } from 'lucide-react';
-import toast from 'react-hot-toast'; // 🚀 Added Toast for beautiful notifications
+import { Trash2, Plus, Minus, ArrowRight, ShieldCheck, ShoppingBag, Tag, CreditCard, Lock, X, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast'; 
 
 // 🚀 ENTERPRISE LOGIC: Mock Promo Database
 const VALID_PROMOS = {
@@ -13,14 +13,14 @@ const VALID_PROMOS = {
 export default function Cart({ cart, updateQuantity, removeFromCart, handleCheckout }) {
   const navigate = useNavigate();
   
-  // Promo State
+  // Promo & Loading State
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
+  const [isCheckingOut, setIsCheckingOut] = useState(false); // 🚀 NEW: Loading state
 
   // 🚀 ENTERPRISE LOGIC: Financial Calculations
   const rawSubtotal = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
   
-  // Calculate Discount
   let discountAmount = 0;
   if (appliedPromo) {
     if (appliedPromo.type === 'percent') {
@@ -29,21 +29,18 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
       discountAmount = appliedPromo.value;
     }
   }
-  // Safety check: Discount can never be more than the subtotal
   discountAmount = Math.min(discountAmount, rawSubtotal);
 
   const subtotalAfterDiscount = rawSubtotal - discountAmount;
   
-  const shippingThreshold = 150; // Free shipping over $150
-  // Shipping is based on the discounted price!
+  const shippingThreshold = 150; 
   const shippingCost = subtotalAfterDiscount >= shippingThreshold || subtotalAfterDiscount === 0 ? 0 : 15.00;
-  const estimatedTax = subtotalAfterDiscount * 0.08; // 8% mock tax
+  const estimatedTax = subtotalAfterDiscount * 0.08; 
   const total = subtotalAfterDiscount + shippingCost + estimatedTax;
 
   const amountUntilFreeShipping = shippingThreshold - subtotalAfterDiscount;
   const shippingProgress = Math.min((subtotalAfterDiscount / shippingThreshold) * 100, 100);
 
-  // 🚀 The Promo Validation Engine
   const handleApplyPromo = () => {
     const cleanCode = promoCode.trim().toUpperCase();
     
@@ -66,7 +63,17 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
     toast.success("Promo code removed.", { style: { borderRadius: '8px', background: '#333', color: '#fff' }});
   };
 
-  // 🚀 PREMIUM UI: The Empty Cart State
+  // 🚀 NEW: Safe checkout wrapper to trigger animation
+  const onCheckoutClick = async () => {
+    setIsCheckingOut(true);
+    try {
+      await handleCheckout(appliedPromo ? appliedPromo.code : "");
+    } finally {
+      // If the redirect fails or takes too long, we reset it after a delay
+      setTimeout(() => setIsCheckingOut(false), 5000); 
+    }
+  };
+
   if (cart.length === 0) {
     return (
       <div className="empty-cart-container">
@@ -86,17 +93,18 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
 
   return (
     <div className="cart-page-container">
+      <style>{`
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spin-icon { animation: spin 1s linear infinite; }
+      `}</style>
       <div className="cart-header">
         <h1>Secure Checkout</h1>
         <p>{cart.length} {cart.length === 1 ? 'item' : 'items'} in your bag</p>
       </div>
 
       <div className="cart-grid">
-        
-        {/* LEFT COLUMN: The Items */}
         <div className="cart-items-section">
           
-          {/* Free Shipping Motivator */}
           <div className="shipping-motivator">
             <div className="shipping-text">
               {amountUntilFreeShipping > 0 ? (
@@ -110,11 +118,9 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
             </div>
           </div>
 
-          {/* Item List */}
           <div className="cart-items-list">
             {cart.map((item) => (
               <div key={item.id} className="cart-item-row">
-                
                 <div className="cart-item-image-wrapper" onClick={() => navigate(`/product/${item.id}`)}>
                   {item.imageUrl ? (
                     <img src={item.imageUrl} alt={item.name} />
@@ -159,7 +165,6 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
           </div>
         </div>
 
-        {/* RIGHT COLUMN: The Sticky Order Summary */}
         <div className="cart-summary-section">
           <div className="sticky-summary-box">
             <h2>Order Summary</h2>
@@ -169,7 +174,6 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
               <span className="summary-value">${rawSubtotal.toFixed(2)}</span>
             </div>
 
-            {/* 🚀 NEW: Dynamic Discount Row */}
             {appliedPromo && (
               <div className="summary-row" style={{ color: '#059669', backgroundColor: '#d1fae5', padding: '8px 12px', borderRadius: '8px', alignItems: 'center' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
@@ -198,7 +202,6 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
               <span className="summary-value">${estimatedTax.toFixed(2)}</span>
             </div>
 
-            {/* Hide input if a promo is already applied */}
             {!appliedPromo && (
               <div className="promo-code-input">
                 <Tag size={16} color="#a0aec0" />
@@ -218,8 +221,18 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
               <span className="total-value">${total.toFixed(2)}</span>
             </div>
 
-            <button className="checkout-btn" onClick={() => handleCheckout(appliedPromo ? appliedPromo.code : "")}>
-              <Lock size={18} /> Proceed to Checkout
+            {/* 🚀 UPGRADED: Dynamic Loading Button */}
+            <button 
+              className="checkout-btn" 
+              onClick={onCheckoutClick}
+              disabled={isCheckingOut}
+              style={{ opacity: isCheckingOut ? 0.7 : 1, cursor: isCheckingOut ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', gap: '8px' }}
+            >
+              {isCheckingOut ? (
+                <><Loader2 size={18} className="spin-icon" /> Securing Session...</>
+              ) : (
+                <><Lock size={18} /> Proceed to Checkout</>
+              )}
             </button>
 
             <div className="secure-checkout-badges">
@@ -228,7 +241,6 @@ export default function Cart({ cart, updateQuantity, removeFromCart, handleCheck
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

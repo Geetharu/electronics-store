@@ -561,7 +561,7 @@ body {
   color: #64748b; font-size: 0.9rem; font-weight: 600; 
 }
 
-.empty-cart-container { display: flex; justify-content: center; align-items: center; min-height: 60vh; animation: fadeIn 0.4s ease-out;}
+.empty-cart-container { display: flex; justify-content: center; align-items: center; min-height: 60vh; animation: fadeIn 0.4s ease-out; flex-direction: column;}
 .empty-cart-content { text-align: center; max-width: 450px; }
 .empty-cart-icon-wrapper { 
   width: 140px; height: 140px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
@@ -689,4 +689,111 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================
+   🚀 ENTERPRISE UI: Order History Page
+   ========================================== */
+
+.enterprise-order-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 20px 6rem 20px;
+  font-family: inherit;
+}
+
+.enterprise-page-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f1111;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.e-order-card {
+  border: 1px solid #d5dbdb;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* Crisp Top Bar */
+.e-order-header {
+  background-color: #f0f2f2;
+  border-bottom: 1px solid #d5dbdb;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 13px;
+  color: #565959;
+}
+
+.e-header-left { display: flex; gap: 35px; flex-wrap: wrap; }
+.e-meta-block { display: flex; flex-direction: column; gap: 3px; }
+.e-meta-label { font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
+.e-meta-value { color: #0f1111; font-weight: 500; font-size: 13px;}
+
+.e-header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.e-link { color: #007185; cursor: pointer; text-decoration: none; font-weight: 500; transition: color 0.1s; }
+.e-link:hover { color: #c45500; text-decoration: underline; }
+
+/* Main Content Body */
+.e-order-body { padding: 18px; display: flex; gap: 24px; flex-wrap: wrap; }
+.e-body-main { flex: 1; min-width: 300px; }
+
+.e-status-heading { font-size: 18px; font-weight: 700; color: #0f1111; margin: 0 0 14px 0; display: flex; align-items: center; gap: 8px;}
+.e-status-heading.success { color: #058552; }
+.e-status-heading.transit { color: #007185; }
+.e-status-heading.cancelled { color: #cc0c39; }
+
+.e-item-list { display: flex; flex-direction: column; gap: 16px; }
+.e-item-row { display: flex; gap: 16px; }
+.e-item-image { width: 70px; height: 70px; object-fit: contain; border: 1px solid #e7e7e7; border-radius: 6px; padding: 4px; background: #fff; flex-shrink: 0;}
+.e-item-details { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; }
+.e-item-title { font-size: 14px; font-weight: 600; color: #007185; cursor: pointer; margin: 0 0 4px 0; line-height: 1.3;}
+.e-item-title:hover { color: #c45500; text-decoration: underline; }
+.e-item-meta { font-size: 12px; color: #565959; margin-bottom: 8px;}
+
+/* Standardized Buttons */
+.e-action-buttons { width: 220px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; border-left: 1px solid #e7e7e7; padding-left: 24px;}
+.e-btn {
+  width: 100%; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  text-align: center; cursor: pointer; border: 1px solid #d5dbdb; background: #fff;
+  box-shadow: 0 2px 5px rgba(213,217,217,0.2); transition: background 0.1s;
+  color: #0f1111; display: flex; justify-content: center; align-items: center; gap: 6px;
+}
+.e-btn:hover { background: #f7fafa; }
+.e-btn.primary { background: #2b6cb0; border-color: #2b6cb0; color: white; box-shadow: 0 2px 5px rgba(43,108,176,0.3); }
+.e-btn.primary:hover { background: #2c5282; }
+
+/* Expanded Receipt & Timeline */
+.e-expanded-details { border-top: 1px solid #e7e7e7; padding: 24px 18px; background: #fcfcfc; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.e-receipt-box h4, .e-timeline-box h4 { font-size: 15px; font-weight: 700; margin: 0 0 16px 0; color: #0f1111; border-bottom: 1px solid #e7e7e7; padding-bottom: 8px;}
+.e-receipt-row { display: flex; justify-content: space-between; font-size: 13px; color: #0f1111; margin-bottom: 8px; }
+.e-receipt-row.discount { color: #058552; }
+.e-receipt-total { font-weight: 700; border-top: 1px solid #d5dbdb; padding-top: 10px; margin-top: 10px; font-size: 15px;}
+
+/* Crisp Timeline */
+.e-timeline-track { display: flex; justify-content: space-between; position: relative; margin-top: 10px; }
+.e-timeline-line { position: absolute; top: 10px; left: 10%; right: 10%; height: 3px; background: #d5dbdb; z-index: 1; }
+.e-timeline-progress { position: absolute; top: 10px; left: 10%; height: 3px; background: #058552; z-index: 2; transition: width 0.5s ease; }
+.e-timeline-node { display: flex; flex-direction: column; align-items: center; z-index: 3; width: 33%; text-align: center; }
+.e-node-dot { width: 22px; height: 22px; border-radius: 50%; background: #d5dbdb; color: white; display: flex; justify-content: center; align-items: center; font-size: 11px; border: 3px solid #fcfcfc; }
+.e-timeline-node.completed .e-node-dot { background: #058552; }
+.e-node-label { font-size: 12px; font-weight: 600; color: #565959; margin-top: 8px; }
+.e-timeline-node.completed .e-node-label { color: #0f1111; }
+.e-node-date { font-size: 11px; color: #565959; margin-top: 2px;}
+
+@media (max-width: 768px) {
+  .e-order-header { flex-direction: column; gap: 12px; }
+  .e-header-left { gap: 20px; }
+  .e-header-right { align-items: flex-start; border-top: 1px solid #d5dbdb; padding-top: 12px; width: 100%; flex-direction: row; gap: 20px; }
+  .e-order-body { flex-direction: column; }
+  .e-action-buttons { width: 100%; border-left: none; padding-left: 0; border-top: 1px solid #e7e7e7; padding-top: 16px; flex-direction: row; flex-wrap: wrap;}
+  .e-btn { width: calc(50% - 4px); }
+  .e-expanded-details { grid-template-columns: 1fr; gap: 24px; }
 }
