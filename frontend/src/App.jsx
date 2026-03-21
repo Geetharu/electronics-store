@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast'; 
-import { Settings, Store, User, Package, Heart, ShoppingCart, LogOut, Menu, X, Plus, Minus, Trash2, ArrowUp, ChevronDown, MapPin, Headphones, PackageOpen } from 'lucide-react';
+import { Settings, Store, User, Package, Heart, ShoppingCart, LogOut, Menu, X, Plus, Minus, Trash2, ArrowUp, ChevronDown, MapPin, Headphones, PackageOpen } from 'lucide-react'; 
+import './App.css';
 
 import Login from './Login'; 
 import Register from './Register';
