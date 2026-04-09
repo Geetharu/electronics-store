@@ -17,7 +17,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
-@CrossOrigin(origins = "${cors.allowed.origin}")
+// 🚀 FIXED: Removed @CrossOrigin. SecurityConfig.java handles this globally now!
 public class ProductController {
 
     private final ProductService productService;
@@ -73,7 +73,6 @@ public class ProductController {
         }
     }
 
-    // 🚀 UPDATED: Calls the new Soft Delete safe query
     @GetMapping("/{id}/related")
     public ResponseEntity<List<Product>> getRelatedProducts(@PathVariable Long id) {
         try {
